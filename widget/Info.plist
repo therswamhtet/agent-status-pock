@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>AgentTouchBar</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.touchbar.agentstatus</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AgentTouchBar</string>
+	<key>CFBundleDisplayName</key>
+	<string>Agent Status</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.2.0</string>
+	<key>CFBundleVersion</key>
+	<string>2026081703</string>
+	<key>NSPrincipalClass</key>
+	<string>AgentTouchBar.AgentTouchBarWidget</string>
+	<key>PKWidgetAuthor</key>
+	<string>MSIModern14</string>
+	<key>PKWidgetPreferenceClass</key>
+	<string>AgentTouchBar.AgentTouchBarPreferencePane</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>MIT</string>
+</dict>
+</plist>
