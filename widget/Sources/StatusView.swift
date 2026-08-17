@@ -204,11 +204,19 @@ final class StatusView: NSView {
     }
 
     private func style(_ button: NSButton, color: NSColor, font: NSFont) {
-        button.bezelStyle = .rounded
-        button.bezelColor = color
+        button.isBordered = false
+        button.bezelStyle = .regularSquare
         button.font = font
-        button.contentTintColor = .white
         button.focusRingType = .none
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        button.layer?.backgroundColor = color.cgColor
+        button.layer?.masksToBounds = true
+        let title = button.title
+        button.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: font,
+            .foregroundColor: NSColor.white,
+        ])
     }
 
     private func clickGesture(_ action: Selector) -> NSClickGestureRecognizer {
