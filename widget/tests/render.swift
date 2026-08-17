@@ -58,7 +58,11 @@ func snapshot(_ view: NSView, width: CGFloat, file: String) {
 }
 
 func agent(_ a: String, _ n: String, _ s: String, _ c: String, _ st: String, _ l: String, _ la: Double) -> BridgeClient.AgentInfo {
-    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, lastActive: la)
+    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, options: nil, lastActive: la)
+}
+
+func agentWithOptions(_ a: String, _ n: String, _ s: String, _ c: String, _ st: String, _ l: String, _ la: Double, _ opts: [String]) -> BridgeClient.AgentInfo {
+    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, options: opts, lastActive: la)
 }
 
 func permission(_ id: String, _ a: String, _ tool: String, _ detail: String, _ suggestions: [String]) -> BridgeClient.PermissionItem {
@@ -134,6 +138,14 @@ struct RenderTest {
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         snapshot(statusView, width: StatusView.preferredWidth, file: "render-panel-allow.png")
 
+        // Question panel: AskUserQuestion with numbered answer options.
+        statusView.apply(agents: [
+            agentWithOptions("claude", "Claude", "sparkles", "D97757", "needsInput", "Asking a question", 100,
+                ["Build a feature", "Fix a bug", "Refactor code"]),
+        ], pendingCount: 0, permission: nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        snapshot(statusView, width: StatusView.preferredWidth, file: "render-question.png")
+
         // Self-checks.
         let sweep = stats("render-working-sweep.png")
         let working = stats("render-working.png")
@@ -143,7 +155,9 @@ struct RenderTest {
         precondition(sweepBrightness - workingBrightness > 60,
                      "shimmer band does not brighten active text enough")
         precondition(noagent.faint > 150, "no-agent text missing")
-        print("checks: sweep.band=\(sweepBrightness) working.base=\(workingBrightness) noagent.faint=\(noagent.faint) — PASSED")
+        let question = stats("render-question.png")
+        precondition(question.full + question.mid > 100, "question panel numbered buttons missing")
+        print("checks: sweep.band=\(sweepBrightness) working.base=\(workingBrightness) noagent.faint=\(noagent.faint) question=\(question.full + question.mid) — PASSED")
 
         print("RENDER TEST DONE")
     }

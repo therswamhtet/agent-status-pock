@@ -12,6 +12,7 @@ final class BridgeClient {
         let label: String
         let tool: String?
         let detail: String?
+        let options: [String]?
         let lastActive: Double
     }
 

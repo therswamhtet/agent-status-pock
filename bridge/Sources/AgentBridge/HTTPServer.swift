@@ -150,8 +150,9 @@ final class HTTPServer: @unchecked Sendable {
             let event = body["event"] as? String ?? ""
             let tool = body["tool"] as? String
             let detail = body["detail"] as? String
+            let options = body["options"] as? [String]
             let ts = body["ts"] as? Double
-            hub.record(event: event, agent: agent, tool: tool, detail: detail, ts: ts)
+            hub.record(event: event, agent: agent, tool: tool, detail: detail, options: options, ts: ts)
             writeResponse(fd, status: 200, json: ["ok": true])
 
         case ("POST", "/v1/permission"):

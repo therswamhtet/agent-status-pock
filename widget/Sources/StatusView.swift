@@ -37,6 +37,8 @@ final class StatusView: NSView {
     private let panelTitle = NSTextField(labelWithString: "")
     private let allowButton = NSButton(title: "Allow", target: nil, action: nil)
     private var suggestionButtons: [NSButton] = []
+    private var questionButtons: [NSButton] = []
+    private var isQuestionPanel = false
 
     // MARK: State
 
@@ -106,7 +108,11 @@ final class StatusView: NSView {
         super.layout()
         panelContainer.frame = bounds
         guard panelContainer.isHidden else {
-            layoutPermissionPanel()
+            if isQuestionPanel {
+                layoutQuestionPanel()
+            } else {
+                layoutPermissionPanel()
+            }
             return
         }
         if presentationWidth <= 1 {
@@ -172,6 +178,35 @@ final class StatusView: NSView {
         allowButton.frame = NSRect(x: x, y: midY, width: allowW, height: 22)
     }
 
+    /// Manual question-panel layout: icon + label + numbered option buttons.
+    /// No Deny/Allow — the user answers in the terminal; the buttons are a
+    /// visual aid so they can see the options on the Touch Bar.
+    private func layoutQuestionPanel() {
+        let gap: CGFloat = 6
+        let iconW: CGFloat = 16
+        let midY = (bounds.height - 22) / 2
+
+        let buttonWidths = questionButtons.map { button -> CGFloat in
+            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10, weight: .semibold)]
+            let textWidth = (button.title as NSString).size(withAttributes: attrs).width
+            return min(max(textWidth + 12, 26), 72)
+        }
+        let buttonTotal = buttonWidths.reduce(0, +)
+        let itemCount = CGFloat(2 + questionButtons.count)
+        let fixed = iconW + buttonTotal + gap * itemCount
+        let titleWidth = max(min(bounds.width - fixed - 40, 200), 40)
+
+        var x = max((bounds.width - fixed - titleWidth) / 2, 6)
+        panelIcon.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: iconW, height: 16)
+        x += iconW + gap
+        panelTitle.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: titleWidth, height: 16)
+        x += titleWidth + gap
+        for (button, width) in zip(questionButtons, buttonWidths) {
+            button.frame = NSRect(x: x, y: midY, width: width, height: 22)
+            x += width + gap
+        }
+    }
+
     private func style(_ button: NSButton, color: NSColor, font: NSFont) {
         button.bezelStyle = .rounded
         button.bezelColor = color
@@ -224,18 +259,37 @@ final class StatusView: NSView {
         let samePermission = permission?.id == currentPermission?.id
         currentPermission = permission
         if let permission = permission {
+            isQuestionPanel = false
             updateIdlePresentation(forceVisible: true)
             if !samePermission { showPermissionPanel(permission) }
             panelContainer.isHidden = false
             label.isHidden = true
             iconView.isHidden = true
+        } else if let questionOptions = currentQuestionOptions() {
+            isQuestionPanel = true
+            clearSuggestionButtons()
+            updateIdlePresentation(forceVisible: true)
+            showQuestionPanel(options: questionOptions)
+            panelContainer.isHidden = false
+            label.isHidden = true
+            iconView.isHidden = true
         } else {
+            isQuestionPanel = false
             panelContainer.isHidden = true
             clearSuggestionButtons()
+            clearQuestionButtons()
             updateIdlePresentation(forceVisible: false)
         }
         refresh()
         needsLayout = true
+    }
+
+    private func currentQuestionOptions() -> [String]? {
+        guard activeAgents.indices.contains(selectedIndex) else { return nil }
+        let agent = activeAgents[selectedIndex]
+        guard agent.status == "needsInput" else { return nil }
+        if let opts = agent.options, !opts.isEmpty { return opts }
+        return nil
     }
 
     private func updateIdlePresentation(forceVisible: Bool) {
@@ -351,6 +405,9 @@ final class StatusView: NSView {
 
     private func showPermissionPanel(_ item: BridgeClient.PermissionItem) {
         clearSuggestionButtons()
+        clearQuestionButtons()
+        denyButton.isHidden = false
+        allowButton.isHidden = false
 
         let badge = pendingCount > 1 ? "  +\(pendingCount - 1)" : ""
         panelTitle.stringValue = "\(item.agent.capitalized) · \(item.tool)\(badge)"
@@ -393,6 +450,41 @@ final class StatusView: NSView {
             button.removeFromSuperview()
         }
         suggestionButtons.removeAll()
+    }
+
+    // MARK: Question panel
+
+    private func showQuestionPanel(options: [String]) {
+        clearQuestionButtons()
+        denyButton.isHidden = true
+        allowButton.isHidden = true
+
+        let agent = activeAgents[selectedIndex]
+        let brand = NSColor(hex: agent.color) ?? .white
+        panelIcon.contentTintColor = brand
+        panelIcon.image = logo(for: agent.agent)
+            ?? NSImage(systemSymbolName: agent.symbol, accessibilityDescription: nil)
+        panelTitle.stringValue = agent.label
+
+        let maxLabel = options.count >= 3 ? 12 : (options.count == 2 ? 16 : 22)
+        for (index, option) in options.enumerated() {
+            let title = "\(index + 1) \(Self.truncate(option, to: maxLabel))"
+            let button = NSButton(title: title, target: nil, action: nil)
+            style(button, color: brand, font: NSFont.systemFont(ofSize: 10, weight: .semibold))
+            button.toolTip = option
+            button.tag = index
+            questionButtons.append(button)
+            panelContainer.addSubview(button)
+        }
+    }
+
+    private func clearQuestionButtons() {
+        for button in questionButtons {
+            button.removeFromSuperview()
+        }
+        questionButtons.removeAll()
+        denyButton.isHidden = false
+        allowButton.isHidden = false
     }
 
     private func logo(for agent: String) -> NSImage? {

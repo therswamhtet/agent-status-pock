@@ -94,17 +94,31 @@ def main():
             return
 
         # Questions asked via AskUserQuestion are harmless (they open the
-        # question UI in the terminal) — auto-approve and show a hint on
-        # the bar instead of a full permission prompt.
+        # question UI in the terminal) — auto-approve and show the answer
+        # options as numbered buttons on the Touch Bar.
         if tool_name == "AskUserQuestion":
-            question = ""
+            options = []
             try:
                 qs = tool_input.get("questions", [])
                 if qs:
-                    question = str(qs[0].get("question", ""))[:120]
+                    for opt in qs[0].get("options", [])[:4]:
+                        if isinstance(opt, dict):
+                            label = str(opt.get("label", opt.get("text", "")))
+                        elif isinstance(opt, str):
+                            label = opt
+                        else:
+                            continue
+                        label = label.strip()
+                        if label:
+                            options.append(label[:40])
             except Exception:
                 pass
-            fire_and_forget({"agent": agent, "event": "needs_input", "detail": question})
+            fire_and_forget({
+                "agent": agent,
+                "event": "needs_input",
+                "detail": "Asking a question",
+                "options": options,
+            })
             if agent == "codex":
                 print(json.dumps({
                     "hook_specific_output": {

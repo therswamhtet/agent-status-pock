@@ -54,6 +54,7 @@ struct AgentSnapshot: Codable {
     var label: String
     var tool: String?
     var detail: String?
+    var options: [String]?
     var lastActive: TimeInterval
     var transientUntil: TimeInterval?
 }
@@ -128,6 +129,7 @@ final class AgentHub: @unchecked Sendable {
                 label: "No agent running",
                 tool: nil,
                 detail: nil,
+                options: nil,
                 lastActive: 0,
                 transientUntil: nil
             )
@@ -182,7 +184,7 @@ final class AgentHub: @unchecked Sendable {
 
     // MARK: Events
 
-    func record(event: String, agent: AgentID, tool: String?, detail: String?, ts: Double?) {
+    func record(event: String, agent: AgentID, tool: String?, detail: String?, options: [String]?, ts: Double?) {
         lock.lock()
 
         guard isEnabled(agent) else {
@@ -229,7 +231,7 @@ final class AgentHub: @unchecked Sendable {
         if !isQuietTransition(event) {
             heldEvent[agent] = nil
         }
-        apply(event: event, agent: agent, tool: tool, detail: detail, eventTime: eventTime)
+        apply(event: event, agent: agent, tool: tool, detail: detail, options: options, eventTime: eventTime)
         lock.unlock()
     }
 
@@ -241,7 +243,7 @@ final class AgentHub: @unchecked Sendable {
         // then the held one is stale.
         if let last = lastEventAt[agent], held.ts < last - staleTolerance { return }
         heldEvent[agent] = nil
-        apply(event: held.event, agent: agent, tool: held.tool, detail: held.detail, eventTime: held.ts)
+        apply(event: held.event, agent: agent, tool: held.tool, detail: held.detail, options: nil, eventTime: held.ts)
     }
 
     private func isQuietTransition(_ event: String) -> Bool {
@@ -249,13 +251,14 @@ final class AgentHub: @unchecked Sendable {
             .contains(event)
     }
 
-    private func apply(event: String, agent: AgentID, tool: String?, detail: String?, eventTime: Double) {
+    private func apply(event: String, agent: AgentID, tool: String?, detail: String?, options: [String]?, eventTime: Double) {
         var status = statuses[agent] ?? AgentSnapshot(
             agent: agent, name: agent.displayName, symbol: agent.symbol, color: agent.color,
-            status: .idle, label: "No agent running", tool: nil, detail: nil, lastActive: 0, transientUntil: nil
+            status: .idle, label: "No agent running", tool: nil, detail: nil, options: nil, lastActive: 0, transientUntil: nil
         )
         let now = Date().timeIntervalSince1970
         status.lastActive = now
+        status.options = nil
 
         switch event {
         case "session_start":
@@ -296,9 +299,10 @@ final class AgentHub: @unchecked Sendable {
 
         case "needs_input":
             status.status = .needsInput
-            status.label = "Needs your answer"
+            status.label = detail ?? "Needs your answer"
             status.tool = nil
-            status.detail = detail
+            status.detail = nil
+            status.options = options
             status.transientUntil = nil
 
         case "ready", "idle":
@@ -364,7 +368,7 @@ final class AgentHub: @unchecked Sendable {
         pendingOrder.append(id)
         var status = statuses[agent] ?? AgentSnapshot(
             agent: agent, name: agent.displayName, symbol: agent.symbol, color: agent.color,
-            status: .idle, label: "No agent running", tool: nil, detail: nil, lastActive: 0, transientUntil: nil
+            status: .idle, label: "No agent running", tool: nil, detail: nil, options: nil, lastActive: 0, transientUntil: nil
         )
         status.status = .waitingPermission
         status.label = "Waiting for you"
