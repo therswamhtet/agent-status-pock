@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs the ready-to-use Agent Status bundle: bridge daemon + LaunchAgent +
 # Pock widgets + agent hooks (Claude Code, Codex, opencode).
-# No compiler required — everything is prebuilt.
+# No compiler required, everything is prebuilt.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"

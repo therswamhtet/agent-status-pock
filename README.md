@@ -1,48 +1,42 @@
-# Agent Status — Pock
+# Agent Status
 
-> Live status and tap-to-approve permissions for your coding agents, right on
-> the MacBook **Touch Bar**.
+A [Pock](https://pock.app) widget that shows what your coding agent is doing
+right on the MacBook Touch Bar. Works with **Claude Code**, **Codex CLI** and
+**opencode**.
 
-Turn the Touch Bar into a real-time cockpit for **Claude Code**, **Codex CLI**
-and **opencode**. See exactly what your agent is doing — thinking, answering,
-editing, running shell commands — and approve permission requests with a tap,
-without ever leaving your keyboard.
+![Agent Status screenshots](docs/screenshots/hero.png)
 
-![Working](docs/screenshots/render-working.png)
-![Permission allow](docs/screenshots/render-panel-allow.png)
-![Permission suggestions](docs/screenshots/render-panel-suggestions.png)
-![Answering](docs/screenshots/render-answering.png)
-![Ready](docs/screenshots/render-ready.png)
+## Features
 
-## Highlights
-
-- **Live agent status** — `Thinking…`, `Answering…`, `Editing code`,
-  `Reading`, `Searching`, `Executing shell` with a shimmering sweep. Idle
-  agents pulse "ready"; finished answers flash **Response ready**.
-- **Permission approval by tap** — permission prompts appear on the Touch Bar
-  as a **Deny** (red) / **Allow** (green) bar, or numbered buttons (1/2/3)
-  for the agent's suggested answers. Unanswered requests fall back to the
-  agent's own prompt after 60 seconds.
-- **Multi-agent, brand-colored** — Claude clay, Codex teal, opencode violet.
-  The bar follows the most recently active agent; tap to cycle between them.
-- **Zero-dependency widget** — the `.pock` bundle loads in *any* Pock version
-  (dynamically resolved symbols, no linked PockKit).
-- **Bonus: VoiceInk dictation key** — a dedicated microphone button that emits
-  virtual **F19**, a key that doesn't exist on Touch Bar MacBook keyboards.
-- **Universal binaries** — arm64 + x86_64, macOS 15+.
+- **Live status.** While an agent works, the bar shows its current activity
+  (Thinking, Answering, Editing code, Reading, Searching, Executing shell)
+  with a shimmer sweep. Idle agents pulse gently. Finished answers flash
+  "Response ready".
+- **Tap to approve.** When an agent asks for permission, the widget becomes a
+  Deny/Allow prompt, or numbered buttons for the agent's suggested answers.
+  If you do not answer within 60 seconds, the agent falls back to its own
+  prompt.
+- **Multi-agent.** Each agent has its own brand color (Claude clay, Codex
+  teal, opencode violet). The bar follows the most recently active agent, and
+  you can tap it to cycle between them.
+- **No PockKit dependency.** The widget resolves its symbols at load time, so
+  it runs on any Pock version.
+- **VoiceInk dictation key.** A second widget adds a microphone button that
+  emits virtual F19, a key that does not exist on Touch Bar keyboards.
+- **Universal build.** arm64 and x86_64, macOS 15 and up.
 
 ## Requirements
 
-- macOS 15+ on a **Touch Bar MacBook Pro**
+- macOS 15 or newer on a MacBook Pro with a Touch Bar
 - [Pock](https://pock.app) 0.9.0-22 or later
-- At least one of: **Claude Code**, **Codex CLI**, **opencode**
-- To install the *source* build: Xcode Command Line Tools + Python 3
+- At least one of: Claude Code, Codex CLI, opencode
+- For a source install: Xcode Command Line Tools and Python 3
 
-## Install (recommended — no compiler needed)
+## Install (recommended, no compiler needed)
 
 Grab the latest **ready-to-use** bundle from the
 [Releases page](https://github.com/therswamhtet/agent-status-pock/releases)
-(`agent-status-pock-<version>-ready.zip`). It ships prebuilt `.pock`
+(`agent-status-pock-<version>-ready.zip`). It contains prebuilt `.pock`
 widgets, the AgentBridge daemon, agent hooks and an installer:
 
 ```bash
@@ -54,15 +48,16 @@ chmod +x install.sh uninstall.sh
 
 Then:
 
-1. **Relaunch Pock** (menu bar icon → Relaunch), open **Customize Pock…** and
-   drag **Agent Status** into your Touch Bar.
-2. In **Codex**, run `/hooks` and trust the AgentBridge hooks (required for
-   non-managed hooks).
-3. **Restart** your agent sessions.
+1. Relaunch Pock (menu bar icon, Relaunch), open Customize Pock and drag
+   **Agent Status** into your Touch Bar.
+2. In Codex, run `/hooks` and trust the AgentBridge hooks. Codex requires
+   this for non-managed hooks.
+3. Restart your agent sessions.
 
-> Why not just the `.pock`? The widget itself has no agent connection — it
-> polls the local **AgentBridge** daemon (`localhost:3939`), which aggregates
-> status and holds permission requests. The bundle installs everything at once.
+Why not just the `.pock` file? The widget has no direct connection to your
+agents. It polls a small local daemon called **AgentBridge**
+(`localhost:3939`) that gathers status and holds permission requests. The
+bundle installs all of it at once.
 
 ## Install from source
 
@@ -73,7 +68,7 @@ cd agent-status-pock
 ```
 
 The source installer builds the bridge and widgets locally, then follows the
-same steps above. See **Development** for build targets.
+same steps. See Development below.
 
 ## How it works
 
@@ -91,49 +86,49 @@ same steps above. See **Development** for build targets.
                                                └───────────────┘
 ```
 
-1. **AgentBridge** — a tiny local daemon (`~/.agentbridge/bin/agentbridge`,
-   LaunchAgent). Aggregates per-agent status and holds permission requests
-   (60s timeout → fall back to the agent's own prompt).
-2. **Agent hooks / plugins** — one shared Python hook for Claude Code and
-   Codex; a JS plugin for opencode. They push activity events and block on
+1. **AgentBridge** is a tiny local daemon (`~/.agentbridge/bin/agentbridge`)
+   run by a LaunchAgent. It aggregates per-agent status and holds permission
+   requests for 60 seconds before falling back to the agent's own prompt.
+2. **Agent hooks and plugins** push activity events. Claude Code and Codex use
+   a shared Python hook. opencode uses a JavaScript plugin. The hooks block on
    permission requests until you tap the Touch Bar.
-3. **Pock widget** (`AgentTouchBar.pock`) — polls the bridge, renders the
-   shimmering status view, and presents the system-modal permission bar.
+3. **The Pock widget** (`AgentTouchBar.pock`) polls the bridge every 300 ms,
+   renders the status view, and shows the permission prompt as a system modal.
 
 ### What each agent reports
 
 | Event | Claude Code | Codex | opencode |
 |---|---|---|---|
-| Tool activity (`Editing`, `Executing`…) | `PreToolUse` | `PreToolUse` | `tool.execute.before` |
+| Tool activity (Editing, Executing...) | `PreToolUse` | `PreToolUse` | `tool.execute.before` |
 | Thinking | `UserPromptSubmit` / `PostToolUse` | same | `message.part.updated` |
 | Idle | `Stop` / `SessionEnd` | same | `session.idle` |
 | Permission tap | `PermissionRequest` (allow/deny/ask JSON) | `PermissionRequest` (allow/deny JSON) | not supported yet |
 
 ## Usage
 
-- **Status** — watch the bar while your agent works. Shimmering text = active;
-  breathing icon = idle, waiting for you.
-- **Permission** — when the bar switches to a full-width Deny/Allow prompt,
-  tap **Allow** or **Deny**. Multiple pending requests are served in order.
-- **Cycle agents** — tap the status area to cycle through recently active
-  agents (works in cursor mode too).
-- **VoiceInk dictation** — tap the microphone button to start/stop VoiceInk.
-  It always emits its dedicated virtual F19; it does not mirror any shortcut.
-  If macOS blocks synthetic keys, allow Pock under System Settings → Privacy
-  & Security → Accessibility.
+- **Watch the bar.** Shimmering text means the agent is working. A breathing
+  icon means it is idle and waiting for you.
+- **Approve permissions.** When the bar becomes a full-width Deny/Allow
+  prompt, tap Allow or Deny. Pending requests are served one after another.
+- **Cycle agents.** Tap the status area to cycle through recently active
+  agents. Works in cursor mode too.
+- **Dictate with VoiceInk.** Tap the microphone button to start VoiceInk, tap
+  again to stop and transcribe. The button always emits its dedicated virtual
+  F19 and does not mirror any shortcut. If macOS blocks synthetic keys, allow
+  Pock under System Settings, Privacy and Security, Accessibility.
 
 ### Configuration
 
-The bridge reads these env vars (set in the LaunchAgent plist):
+The bridge reads these environment variables from the LaunchAgent plist:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `AGENTBRIDGE_URL` | `http://127.0.0.1:3939` | Bridge endpoint (hook, plugin, widget) |
+| `AGENTBRIDGE_URL` | `http://127.0.0.1:3939` | Bridge endpoint for hooks, plugin and widget |
 | `AGENTBRIDGE_PORT` | `3939` | Bridge listen port |
 | `AGENTBRIDGE_TIMEOUT` | `60` | Seconds before an unanswered permission request falls back to the agent's own prompt |
 
-Widget preferences live in Pock → Manage Widgets → **Agent Status**
-(toggle agents, toggle the shimmer animation).
+Widget preferences live in Pock, Manage Widgets, Agent Status. You can toggle
+which agents appear and the shimmer animation.
 
 ## Development
 
@@ -144,15 +139,16 @@ make test      # bridge curl tests + widget smoke test + render test
 make install   # install everything
 ```
 
-Widget layout: `widget/Sources/` (plain Swift, no Xcode project — `swiftc`
-build). PockKit is vendored under `widget/Vendor/PockKit/` (MIT, from
-[github.com/pock/pockkit](https://github.com/pock/pockkit)) and used at
-compile time only: the bundle is linked with `-undefined dynamic_lookup`, so
-it has **zero PockKit symbol dependencies** and loads in any Pock version.
+The widget lives in `widget/Sources/` as plain Swift with a `swiftc` build.
+There is no Xcode project. PockKit is vendored under `widget/Vendor/PockKit/`
+(MIT, from [github.com/pock/pockkit](https://github.com/pock/pockkit)) and is
+used at compile time only. The bundle is linked with
+`-undefined dynamic_lookup`, so it has zero PockKit symbol dependencies and
+loads in any Pock version.
 
 The render test (`widget/tests/render.swift`) draws every UI state into
-`widget/dist/render-*.png` (also mirrored in `docs/screenshots/`) so you can
-eyeball the visuals without a Touch Bar.
+`widget/dist/render-*.png` (mirrored in `docs/screenshots/`) so you can check
+the visuals without a Touch Bar.
 
 ### Releasing
 
@@ -160,22 +156,22 @@ eyeball the visuals without a Touch Bar.
 ./scripts/make-release.sh
 ```
 
-Builds a universal bridge + widgets and packages
-`.release/agent-status-pock-<version>-ready.zip` — the ready-to-use bundle.
+This builds a universal bridge and widgets, then packages
+`.release/agent-status-pock-<version>-ready.zip`, the ready-to-use bundle.
 
 ## Troubleshooting
 
-- **Widget missing from Customize Pock…** — make sure `AgentTouchBar.pock` is
-  in `~/Library/Application Support/Pock/Widgets/` and relaunch Pock.
-- **No status updates** — is the bridge up?
-  `curl -s localhost:3939/v1/health` → `{"ok":true}`. Logs:
+- **Widget missing from Customize Pock.** Make sure `AgentTouchBar.pock` is in
+  `~/Library/Application Support/Pock/Widgets/` and relaunch Pock.
+- **No status updates.** Check the bridge:
+  `curl -s localhost:3939/v1/health` should return `{"ok":true}`. Logs are in
   `~/.agentbridge/logs/stderr.log`.
-- **Permission prompts don't appear** — the hook falls back to the agent's own
-  prompt when the bridge or Pock isn't running. Check bridge health and that
-  the widget is placed in the Touch Bar.
-- **Codex hooks don't run** — run `/hooks` inside Codex and trust them once.
-- **Pock quirks on modern macOS** — after sleep/lock the default bar may
-  reappear; relaunch Pock (see pock/pock issues).
+- **No permission prompts.** The hook falls back to the agent's own prompt
+  when the bridge or Pock is not running. Check bridge health and that the
+  widget is placed in the Touch Bar.
+- **Codex hooks do not run.** Run `/hooks` inside Codex and trust them once.
+- **Pock quirks on modern macOS.** After sleep or lock, the default bar may
+  reappear. Relaunch Pock. See pock/pock issues.
 
 ## Uninstall
 
