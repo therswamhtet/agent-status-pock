@@ -40,7 +40,6 @@ enum AgentStatus: String, Codable {
     case thinking
     case answering
     case working
-    case waitingPermission
     case needsInput
     case responseReady     // transient: answer just finished
 }
@@ -54,31 +53,12 @@ struct AgentSnapshot: Codable {
     var label: String
     var tool: String?
     var detail: String?
-    var options: [String]?
     var lastActive: TimeInterval
     var transientUntil: TimeInterval?
 }
 
-struct PermissionSuggestion: Codable {
-    let label: String
-    /// Raw permission-update entry; echoed back to the agent when the user
-    /// picks this suggestion (e.g. "add allow rule").
-    let entry: String
-}
-
-struct PendingPermission: Codable {
-    let id: String
-    let agent: AgentID
-    let tool: String
-    let detail: String
-    let cwd: String
-    let suggestions: [PermissionSuggestion]
-    let requestedAt: TimeInterval
-}
-
 struct BridgeState: Codable {
     let agents: [AgentSnapshot]
-    let pending: [PendingPermission]
 }
 
 // MARK: - Activity hub
@@ -87,8 +67,6 @@ final class AgentHub: @unchecked Sendable {
 
     private let lock = NSLock()
     private var statuses: [AgentID: AgentSnapshot] = [:]
-    private var pending: [String: PendingEntry] = [:]
-    private var pendingOrder: [String] = []
     // Per-agent ordering + display-dwell bookkeeping.
     private var lastEventAt: [AgentID: Double] = [:]
     private var labelSetAt: [AgentID: Double] = [:]
@@ -106,18 +84,6 @@ final class AgentHub: @unchecked Sendable {
         let ts: Double
     }
 
-    private final class PendingEntry {
-        let permission: PendingPermission
-        let semaphore: DispatchSemaphore
-        var decision = "ask"
-        var ruleIndex: Int?
-
-        init(permission: PendingPermission, semaphore: DispatchSemaphore) {
-            self.permission = permission
-            self.semaphore = semaphore
-        }
-    }
-
     init() {
         for agent in AgentID.allCases {
             statuses[agent] = AgentSnapshot(
@@ -129,7 +95,6 @@ final class AgentHub: @unchecked Sendable {
                 label: "No agent running",
                 tool: nil,
                 detail: nil,
-                options: nil,
                 lastActive: 0,
                 transientUntil: nil
             )
@@ -161,12 +126,6 @@ final class AgentHub: @unchecked Sendable {
         return enabledAgents[agent] ?? true
     }
 
-    private var permissionButtonsEnabled: Bool {
-        let defaults = UserDefaults(suiteName: "com.touchbar.agentstatus")
-        if defaults?.object(forKey: "permissionButtonsEnabled") == nil { return true }
-        return defaults?.bool(forKey: "permissionButtonsEnabled") ?? true
-    }
-
     private func log(_ message: String) {
         let logDir = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
             .appendingPathComponent(".agentbridge/logs")
@@ -184,7 +143,7 @@ final class AgentHub: @unchecked Sendable {
 
     // MARK: Events
 
-    func record(event: String, agent: AgentID, tool: String?, detail: String?, options: [String]?, ts: Double?) {
+    func record(event: String, agent: AgentID, tool: String?, detail: String?, ts: Double?) {
         lock.lock()
 
         guard isEnabled(agent) else {
@@ -213,8 +172,6 @@ final class AgentHub: @unchecked Sendable {
            isQuietTransition(event),
            let setAt = labelSetAt[agent], now - setAt < toolDisplayDwell {
             let shouldSchedule = heldEvent[agent] == nil
-            // Keep the newest quiet transition. The first timer will apply
-            // it after the active-tool dwell expires.
             heldEvent[agent] = HeldEvent(event: event, tool: tool, detail: detail, ts: eventTime)
             let wait = toolDisplayDwell - (now - setAt)
             lock.unlock()
@@ -231,7 +188,7 @@ final class AgentHub: @unchecked Sendable {
         if !isQuietTransition(event) {
             heldEvent[agent] = nil
         }
-        apply(event: event, agent: agent, tool: tool, detail: detail, options: options, eventTime: eventTime)
+        apply(event: event, agent: agent, tool: tool, detail: detail, eventTime: eventTime)
         lock.unlock()
     }
 
@@ -239,11 +196,9 @@ final class AgentHub: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard let held = heldEvent[agent] else { return }
-        // A newer event may have been applied directly in the meantime —
-        // then the held one is stale.
         if let last = lastEventAt[agent], held.ts < last - staleTolerance { return }
         heldEvent[agent] = nil
-        apply(event: held.event, agent: agent, tool: held.tool, detail: held.detail, options: nil, eventTime: held.ts)
+        apply(event: held.event, agent: agent, tool: held.tool, detail: held.detail, eventTime: held.ts)
     }
 
     private func isQuietTransition(_ event: String) -> Bool {
@@ -251,26 +206,23 @@ final class AgentHub: @unchecked Sendable {
             .contains(event)
     }
 
-    private func apply(event: String, agent: AgentID, tool: String?, detail: String?, options: [String]?, eventTime: Double) {
+    private func apply(event: String, agent: AgentID, tool: String?, detail: String?, eventTime: Double) {
         var status = statuses[agent] ?? AgentSnapshot(
             agent: agent, name: agent.displayName, symbol: agent.symbol, color: agent.color,
-            status: .idle, label: "No agent running", tool: nil, detail: nil, options: nil, lastActive: 0, transientUntil: nil
+            status: .idle, label: "No agent running", tool: nil, detail: nil, lastActive: 0, transientUntil: nil
         )
         let now = Date().timeIntervalSince1970
         status.lastActive = now
 
         // Keep needsInput sticky: while a question is on the Touch Bar,
-        // thinking/notification/permission_pending events from the agent
-        // must not overwrite it. Only a real state change (tool_start,
-        // answering, stop, ready, session_start, or a new needs_input)
-        // clears the question panel.
+        // thinking/notification events must not overwrite it. Only a real
+        // state change (tool_start, answering, stop, ready, session_start,
+        // or a new needs_input) clears it.
         if status.status == .needsInput,
-           ["thinking", "notification", "permission_pending", "connected"].contains(event) {
+           ["thinking", "notification", "connected"].contains(event) {
             statuses[agent] = status
             return
         }
-
-        status.options = nil
 
         switch event {
         case "session_start":
@@ -302,19 +254,11 @@ final class AgentHub: @unchecked Sendable {
             status.detail = summarizedTarget(toolName: toolName, detail: detail)
             status.transientUntil = nil
 
-        case "permission_pending":
-            status.status = .waitingPermission
-            status.label = "Waiting for you"
-            status.tool = tool
-            status.detail = detail
-            status.transientUntil = nil
-
         case "needs_input":
             status.status = .needsInput
             status.label = detail ?? "Needs your answer"
             status.tool = nil
             status.detail = nil
-            status.options = options
             status.transientUntil = nil
 
         case "ready", "idle":
@@ -352,81 +296,6 @@ final class AgentHub: @unchecked Sendable {
         log("[\(agent.rawValue)] \(event) tool=\(tool ?? "-") detail=\((detail ?? "-").prefix(60))")
     }
 
-    // MARK: Permissions
-
-    @discardableResult
-    func requestPermission(agent: AgentID, tool: String, detail: String, cwd: String,
-                           suggestions: [PermissionSuggestion], timeout: TimeInterval) -> (decision: String, ruleIndex: Int?) {
-        guard isEnabled(agent), permissionButtonsEnabled else {
-            log("[bridge] permission from disabled agent \(agent.rawValue) → ask")
-            return ("ask", nil)
-        }
-
-        let id = String(UUID().uuidString.prefix(8))
-        let entry = PendingEntry(
-            permission: PendingPermission(
-                id: id,
-                agent: agent,
-                tool: tool,
-                detail: detail,
-                cwd: cwd,
-                suggestions: suggestions,
-                requestedAt: Date().timeIntervalSince1970
-            ),
-            semaphore: DispatchSemaphore(value: 0)
-        )
-        lock.lock()
-        pending[id] = entry
-        pendingOrder.append(id)
-        var status = statuses[agent] ?? AgentSnapshot(
-            agent: agent, name: agent.displayName, symbol: agent.symbol, color: agent.color,
-            status: .idle, label: "No agent running", tool: nil, detail: nil, options: nil, lastActive: 0, transientUntil: nil
-        )
-        status.status = .waitingPermission
-        status.label = "Waiting for you"
-        status.tool = tool
-        status.detail = detail
-        status.lastActive = Date().timeIntervalSince1970
-        status.transientUntil = nil
-        statuses[agent] = status
-        lock.unlock()
-        log("[\(agent.rawValue)] permission \(id) \(tool): \(detail.prefix(80)) suggestions=\(suggestions.count)")
-
-        let result = entry.semaphore.wait(timeout: .now() + timeout)
-        var decision = "ask"
-        var ruleIndex: Int?
-        lock.lock()
-        if result == .success {
-            decision = entry.decision
-            ruleIndex = entry.ruleIndex
-        }
-        if let idx = pendingOrder.firstIndex(of: id) {
-            pendingOrder.remove(at: idx)
-        }
-        pending.removeValue(forKey: id)
-        if pendingOrder.isEmpty, var st = statuses[agent], st.status == .waitingPermission {
-            st.status = .ready
-            st.label = decision == "deny" ? "Denied" : "Approved"
-            st.tool = nil
-            st.detail = nil
-            st.transientUntil = Date().timeIntervalSince1970 + 3
-            statuses[agent] = st
-        }
-        lock.unlock()
-        log("[\(agent.rawValue)] permission \(id) → \(decision) rule=\(ruleIndex.map(String.init) ?? "-")")
-        return (decision, ruleIndex)
-    }
-
-    func decide(id: String, decision: String, ruleIndex: Int?) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = pending[id] else { return false }
-        entry.decision = decision == "allow" ? "allow" : "deny"
-        entry.ruleIndex = ruleIndex
-        entry.semaphore.signal()
-        return true
-    }
-
     func snapshot() -> BridgeState {
         lock.lock()
         defer { lock.unlock() }
@@ -454,8 +323,7 @@ final class AgentHub: @unchecked Sendable {
                 return s
             }
             .sorted { $0.lastActive > $1.lastActive }
-        let pendingList = pendingOrder.compactMap { pending[$0]?.permission }
-        return BridgeState(agents: agents, pending: pendingList)
+        return BridgeState(agents: agents)
     }
 
     // MARK: Label composition

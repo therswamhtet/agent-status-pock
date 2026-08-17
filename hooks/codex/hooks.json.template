@@ -23,9 +23,6 @@
     ],
     "SubagentStop": [
       { "hooks": [ { "type": "command", "command": "/usr/bin/python3 @@HOOK_PATH@@ codex", "timeout": 5 } ] }
-    ],
-    "PermissionRequest": [
-      { "hooks": [ { "type": "command", "command": "/usr/bin/python3 @@HOOK_PATH@@ codex", "timeout": 120 } ] }
     ]
   }
 }

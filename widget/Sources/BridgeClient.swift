@@ -12,28 +12,11 @@ final class BridgeClient {
         let label: String
         let tool: String?
         let detail: String?
-        let options: [String]?
         let lastActive: Double
-    }
-
-    struct PermissionSuggestion: Codable {
-        let label: String
-        let entry: String
-    }
-
-    struct PermissionItem: Codable {
-        let id: String
-        let agent: String
-        let tool: String
-        let detail: String
-        let cwd: String
-        let suggestions: [PermissionSuggestion]
-        let requestedAt: Double
     }
 
     struct BridgeState: Codable {
         let agents: [AgentInfo]
-        let pending: [PermissionItem]
     }
 
     private let baseURL: URL
@@ -65,23 +48,6 @@ final class BridgeClient {
             completion(state)
         }.resume()
     }
-
-    func sendDecision(id: String, decision: String, ruleIndex: Int?, completion: @escaping (Bool) -> Void) {
-        let url = baseURL.appendingPathComponent("/v1/decision")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 2.0
-        var body: [String: Any] = ["id": id, "decision": decision]
-        if let ruleIndex = ruleIndex {
-            body["ruleIndex"] = ruleIndex
-        }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        session.dataTask(with: request) { _, response, _ in
-            let ok = (response as? HTTPURLResponse)?.statusCode == 200
-            completion(ok)
-        }.resume()
-    }
 }
 
 // MARK: - Shared preferences
@@ -110,11 +76,6 @@ enum AgentPrefs {
     static var shimmerEnabled: Bool {
         if defaults.object(forKey: "shimmerEnabled") == nil { return true }
         return defaults.bool(forKey: "shimmerEnabled")
-    }
-
-    static var permissionButtonsEnabled: Bool {
-        if defaults.object(forKey: "permissionButtonsEnabled") == nil { return true }
-        return defaults.bool(forKey: "permissionButtonsEnabled")
     }
 
     /// always: full ready state, compact: 36pt logo while idle,

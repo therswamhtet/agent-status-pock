@@ -21,8 +21,7 @@ Then:
 
 1. Relaunch Pock (menu bar icon, Relaunch), open Customize Pock and drag
    **Agent Status** into your Touch Bar.
-2. In Codex, run `/hooks` and trust the AgentBridge hooks.
-3. Restart your agent sessions.
+2. Restart your agent sessions.
 
 That is it. The bridge starts automatically at login, and the widget starts
 polling it as soon as you add it to the Touch Bar.
@@ -40,11 +39,3 @@ polling it as soon as you add it to the Touch Bar.
 - **No status updates.** The bridge is down or the widget is not in the bar.
   Re-run `./install.sh` and add the widget again.
 - **Codex hooks do not run.** Run `/hooks` inside Codex and trust them once.
-
-## Permission controls
-
-When an agent asks for permission, the widget turns into a panel with a red
-**Deny** button, numbered suggestion buttons (1/2/3) for the answers the
-agent itself suggests, and a green **Allow** button. Picking a suggestion
-echoes an "always allow" rule back to the agent, so it stops asking for that
-operation.

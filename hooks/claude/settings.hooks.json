@@ -32,9 +32,6 @@
     ],
     "Notification": [
       { "hooks": [ { "type": "command", "command": "$HOME/.agentbridge/hooks/agentbridge-hook.py claude", "timeout": 5 } ] }
-    ],
-    "PermissionRequest": [
-      { "matcher": "*", "hooks": [ { "type": "command", "command": "$HOME/.agentbridge/hooks/agentbridge-hook.py claude", "timeout": 120 } ] }
     ]
   }
 }

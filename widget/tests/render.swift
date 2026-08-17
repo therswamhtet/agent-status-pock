@@ -22,18 +22,15 @@ func stats(_ file: String) -> (full: Int, mid: Int, faint: Int) {
             let offset = y * bpr + x * spp
             let r = Int(data[offset])
             let a = Int(data[offset + spp - 1])
-            guard a > 200, r > 90 else { continue } // skip dark background
-            if r > 200 { full += 1 }       // shimmer band over text
+            guard a > 200, r > 90 else { continue }
+            if r > 200 { full += 1 }
             else if r > 150 { mid += 1 }
-            else { faint += 1 }            // dim base text
+            else { faint += 1 }
         }
     }
     return (full, mid, faint)
 }
 
-// Headless harness: cacheDisplay forces a real display pass, so both the
-// layer-backed status view and the AppKit controls in the permission panel
-// (NSButton / NSTextField) draw their final pixels into the bitmap.
 func snapshot(_ view: NSView, width: CGFloat, file: String) {
     let frame = NSRect(x: 0, y: 0, width: width, height: 30)
     view.frame = frame
@@ -58,22 +55,12 @@ func snapshot(_ view: NSView, width: CGFloat, file: String) {
 }
 
 func agent(_ a: String, _ n: String, _ s: String, _ c: String, _ st: String, _ l: String, _ la: Double) -> BridgeClient.AgentInfo {
-    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, options: nil, lastActive: la)
-}
-
-func agentWithOptions(_ a: String, _ n: String, _ s: String, _ c: String, _ st: String, _ l: String, _ la: Double, _ opts: [String]) -> BridgeClient.AgentInfo {
-    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, options: opts, lastActive: la)
-}
-
-func permission(_ id: String, _ a: String, _ tool: String, _ detail: String, _ suggestions: [String]) -> BridgeClient.PermissionItem {
-    let sugs = suggestions.map { BridgeClient.PermissionSuggestion(label: $0, entry: "{}") }
-    return BridgeClient.PermissionItem(id: id, agent: a, tool: tool, detail: detail, cwd: "/tmp", suggestions: sugs, requestedAt: 0)
+    BridgeClient.AgentInfo(agent: a, name: n, symbol: s, color: c, status: st, label: l, tool: nil, detail: nil, lastActive: la)
 }
 
 @main
 struct RenderTest {
     static func main() {
-        // Load PockKit like Pock.app does before touching any widget types.
         guard dlopen(outDir.appendingPathComponent("lib/libPockKit.dylib").path, RTLD_NOW) != nil else {
             fatalError(String(cString: dlerror()))
         }
@@ -83,13 +70,11 @@ struct RenderTest {
         statusView.apply(agents: [
             agent("claude", "Claude", "sparkles", "D97757", "working", "Editing code", 100),
             agent("codex", "Codex", "bolt.fill", "10A37F", "idle", "Waiting for your request", 50),
-        ], pendingCount: 0, permission: nil)
+        ])
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         snapshot(statusView, width: StatusView.preferredWidth, file: "render-working.png")
 
-        // Manually center the shimmer band over the text (headless can't
-        // advance CA time). Mask coordinates are label-local; anchor is at
-        // the mask's left edge, so position.x = 0 centers the band.
+        // Manually center the shimmer band over the text.
         if let label = statusView.subviews.compactMap({ $0 as? ShimmerLabel }).first,
            let bright = label.layer?.sublayers?.last, let mask = bright.mask {
             CATransaction.begin()
@@ -103,48 +88,30 @@ struct RenderTest {
         statusView.apply(agents: [
             agent("opencode", "OpenCode", "terminal.fill", "8B5CF6", "answering", "Answering…", 200),
             agent("claude", "Claude", "sparkles", "D97757", "idle", "Waiting for your request", 100),
-        ], pendingCount: 0, permission: nil)
+        ])
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         snapshot(statusView, width: StatusView.preferredWidth, file: "render-answering.png")
+
+        // Asking a question (yellow, breathing).
+        statusView.apply(agents: [
+            agent("claude", "Claude", "sparkles", "D97757", "needsInput", "Agent is asking a question", 100),
+        ])
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        snapshot(statusView, width: StatusView.preferredWidth, file: "render-question.png")
 
         // Ready state.
         statusView.apply(agents: [
             agent("claude", "Claude", "sparkles", "D97757", "ready", "Claude is ready", 100),
-        ], pendingCount: 0, permission: nil)
+        ])
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         snapshot(statusView, width: StatusView.preferredWidth, file: "render-ready.png")
 
         // No agent running.
         statusView.apply(agents: [
             agent("claude", "Claude", "sparkles", "D97757", "idle", "No agent running", 0),
-        ], pendingCount: 0, permission: nil)
+        ])
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         snapshot(statusView, width: StatusView.preferredWidth, file: "render-noagent.png")
-
-        // Permission panel with numbered suggestions.
-        statusView.apply(agents: [
-            agent("claude", "Claude", "sparkles", "D97757", "waitingPermission", "Needs approval", 100),
-        ], pendingCount: 1, permission: permission(
-            "p1", "claude", "Bash", "rm -rf node_modules && npm install",
-            ["Yes, and don't ask again for npm install", "Yes", "No"]
-        ))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        snapshot(statusView, width: StatusView.preferredWidth, file: "render-panel-suggestions.png")
-
-        // Permission panel without suggestions (Allow/Deny).
-        statusView.apply(agents: [
-            agent("claude", "Claude", "sparkles", "D97757", "waitingPermission", "Needs approval", 100),
-        ], pendingCount: 1, permission: permission("p2", "codex", "shell", "git push --force origin main", []))
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        snapshot(statusView, width: StatusView.preferredWidth, file: "render-panel-allow.png")
-
-        // Question panel: AskUserQuestion with numbered answer options.
-        statusView.apply(agents: [
-            agentWithOptions("claude", "Claude", "sparkles", "D97757", "needsInput", "Asking a question", 100,
-                ["Build a feature", "Fix a bug", "Refactor code"]),
-        ], pendingCount: 0, permission: nil)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        snapshot(statusView, width: StatusView.preferredWidth, file: "render-question.png")
 
         // Self-checks.
         let sweep = stats("render-working-sweep.png")
@@ -155,9 +122,7 @@ struct RenderTest {
         precondition(sweepBrightness - workingBrightness > 60,
                      "shimmer band does not brighten active text enough")
         precondition(noagent.faint > 150, "no-agent text missing")
-        let question = stats("render-question.png")
-        precondition(question.full + question.mid > 100, "question panel numbered buttons missing")
-        print("checks: sweep.band=\(sweepBrightness) working.base=\(workingBrightness) noagent.faint=\(noagent.faint) question=\(question.full + question.mid) — PASSED")
+        print("checks: sweep.band=\(sweepBrightness) working.base=\(workingBrightness) noagent.faint=\(noagent.faint) — PASSED")
 
         print("RENDER TEST DONE")
     }

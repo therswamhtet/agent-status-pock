@@ -2,10 +2,7 @@
 """AgentBridge hook for Claude Code and Codex.
 
 Reads the hook JSON on stdin and forwards activity events to the local
-AgentBridge daemon (fire-and-forget, never blocks the agent). For
-PermissionRequest events it blocks until the user answers on the Touch Bar;
-if the bridge is unreachable or times out, it falls back to the agent's own
-permission prompt.
+AgentBridge daemon (fire-and-forget, never blocks the agent).
 
 Usage: agentbridge-hook.py <claude|codex>
 """
@@ -39,9 +36,6 @@ def stamp(payload):
 
 def fire_and_forget(raw_payload):
     payload = stamp(raw_payload)
-    # Local synchronous delivery preserves lifecycle ordering: PreToolUse
-    # must reach the bridge before PostToolUse. localhost normally responds
-    # in a few milliseconds; bridge-down fallback is capped at 250ms.
     post_json(BRIDGE + "/v1/event", payload, timeout=0.25)
 
 
@@ -68,135 +62,18 @@ def main():
     event = data.get("hook_event_name", "")
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input", {})
-    cwd = data.get("cwd", "")
-    session_id = data.get("session_id", "")
-    permission_mode = data.get("permission_mode", "default")
 
-    if event == "PermissionRequest":
-        # Respect Codex's built-in approval mode. "Approve for me" reaches
-        # hooks as dontAsk/bypassPermissions; acceptEdits only auto-approves
-        # edit/write tools and still asks for shell/network escalation.
-        codex_auto = agent == "codex" and permission_mode in (
-            "dontAsk", "bypassPermissions"
-        )
-        codex_auto_edit = (
-            agent == "codex"
-            and permission_mode == "acceptEdits"
-            and tool_name.lower() in ("edit", "write", "apply_patch", "patch")
-        )
-        if codex_auto or codex_auto_edit:
-            print(json.dumps({
-                "hook_specific_output": {
-                    "hook_event_name": "PermissionRequest",
-                    "decision": {"behavior": "allow"},
-                }
-            }))
-            return
-
-        # Questions asked via AskUserQuestion are harmless (they open the
-        # question UI in the terminal) — auto-approve and show the answer
-        # options as numbered buttons on the Touch Bar.
+    if event == "PreToolUse":
         if tool_name == "AskUserQuestion":
-            options = []
-            try:
-                qs = tool_input.get("questions", [])
-                if qs:
-                    for opt in qs[0].get("options", [])[:4]:
-                        if isinstance(opt, dict):
-                            label = str(opt.get("label", opt.get("text", "")))
-                        elif isinstance(opt, str):
-                            label = opt
-                        else:
-                            continue
-                        label = label.strip()
-                        if label:
-                            options.append(label[:40])
-            except Exception:
-                pass
+            fire_and_forget({"agent": agent, "event": "needs_input",
+                             "detail": "Agent is asking a question"})
+        else:
             fire_and_forget({
                 "agent": agent,
-                "event": "needs_input",
-                "detail": "Asking a question",
-                "options": options,
+                "event": "tool_start",
+                "tool": tool_name,
+                "detail": summarize(tool_name, tool_input),
             })
-            if agent == "codex":
-                print(json.dumps({
-                    "hook_specific_output": {
-                        "hook_event_name": "PermissionRequest",
-                        "decision": {"behavior": "allow"},
-                    }
-                }))
-            else:
-                print(json.dumps({
-                    "hookSpecificOutput": {
-                        "hookEventName": "PermissionRequest",
-                        "decision": {"behavior": "allow"},
-                    }
-                }))
-            return
-
-        # Turn permission_suggestions into numbered Touch Bar buttons. Picking
-        # one echoes the entry back as updatedPermissions (= "don't ask again").
-        suggestions = []
-        raw_suggestions = data.get("permission_suggestions")
-        if isinstance(raw_suggestions, list):
-            for item in raw_suggestions[:3]:
-                if isinstance(item, dict) and item.get("type") == "addRules":
-                    rules = item.get("rules") or []
-                    rule_text = ""
-                    for rule in rules:
-                        if isinstance(rule, dict):
-                            rule_text = rule.get("ruleContent") or rule.get("toolName") or ""
-                            if rule_text:
-                                break
-                    label = "Always allow" + (f" · {rule_text[:24]}" if rule_text else "")
-                    suggestions.append({"label": label[:40], "entry": item})
-                elif isinstance(item, dict):
-                    suggestions.append({"label": "Always allow", "entry": item})
-
-        payload = stamp({
-            "agent": agent,
-            "tool": tool_name,
-            "detail": summarize(tool_name, tool_input) or tool_name,
-            "cwd": cwd,
-            "session": session_id,
-            "suggestions": suggestions,
-        })
-        response = post_json(BRIDGE + "/v1/permission", payload, timeout=75) or {}
-        decision = response.get("decision", "ask")
-
-        if decision in ("allow", "deny"):
-            decision_obj = {"behavior": decision}
-            if decision == "allow" and response.get("updatedPermissions"):
-                decision_obj["updatedPermissions"] = response["updatedPermissions"]
-            if decision == "deny":
-                decision_obj["message"] = "Denied on Touch Bar"
-            if agent == "codex":
-                print(json.dumps({
-                    "hook_specific_output": {
-                        "hook_event_name": "PermissionRequest",
-                        "decision": decision_obj,
-                    }
-                }))
-            else:
-                print(json.dumps({
-                    "hookSpecificOutput": {
-                        "hookEventName": "PermissionRequest",
-                        "decision": decision_obj,
-                    }
-                }))
-        # No output → the agent shows its own approval prompt (timeout /
-        # bridge down fallback).
-        return
-
-    # Activity events: fire-and-forget, never block the agent loop.
-    if event == "PreToolUse":
-        fire_and_forget({
-            "agent": agent,
-            "event": "tool_start",
-            "tool": tool_name,
-            "detail": summarize(tool_name, tool_input),
-        })
     elif event == "MessageDisplay":
         fire_and_forget({"agent": agent, "event": "answering"})
     elif event in ("PostToolUse", "PostToolUseFailure", "UserPromptSubmit",
@@ -210,11 +87,9 @@ def main():
         fire_and_forget({"agent": agent, "event": "session_end"})
     elif event == "Notification":
         notification_type = (data.get("notification_type") or data.get("message") or "").lower()
-        if "permission" in notification_type:
-            fire_and_forget({"agent": agent, "event": "permission_pending", "tool": tool_name})
-        elif "input" in notification_type or "question" in notification_type:
+        if "input" in notification_type or "question" in notification_type:
             fire_and_forget({"agent": agent, "event": "needs_input",
-                             "detail": (data.get("message") or "")[:120]})
+                             "detail": "Agent is asking a question"})
         elif "idle" in notification_type or "completed" in notification_type:
             fire_and_forget({"agent": agent, "event": "ready"})
         else:

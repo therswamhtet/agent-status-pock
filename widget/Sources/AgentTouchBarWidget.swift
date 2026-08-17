@@ -3,28 +3,21 @@ import PockKit
 
 /// Agent Status widget for Pock.
 ///
-/// Shows live activity (thinking / editing / searching …) of coding agents
-/// (Claude Code, Codex, OpenCode) with a shimmering status label, and takes
-/// over the Touch Bar with Allow/Deny buttons when an agent requests
-/// permission. Data comes from the local AgentBridge daemon.
+/// Shows live activity (thinking / editing / searching ...) of coding agents
+/// (Claude Code, Codex, OpenCode) with a shimmering status label. Data comes
+/// from the local AgentBridge daemon.
 public final class AgentTouchBarWidget: NSObject, PKWidget {
 
     // MARK: Protocol compatibility
 
-    // New PockKit: deprecated static identifier (String).
     @available(*, deprecated, message: "Identifier is read from the bundle's Info.plist")
     public static var identifier: String = "com.touchbar.agentstatus"
 
-    // Old PockKit (≤2021): instance identifier requirement.
     @objc public var identifier: NSTouchBarItem.Identifier = NSTouchBarItem.Identifier("com.touchbar.agentstatus")
 
     public var customizationLabel = "Agent Status"
     public var view: NSView!
 
-    // Old PockKit declares imageForCustomization / prepareForCustomization /
-    // lifecycle callbacks as CLASS members; newer PockKit declares them as
-    // instance members. Implement both and forward the class forms to the
-    // live instance so the widget works with every Pock release.
     private static weak var shared: AgentTouchBarWidget?
 
     @objc public static func viewWillAppear() { shared?.viewWillAppear() }
@@ -34,7 +27,6 @@ public final class AgentTouchBarWidget: NSObject, PKWidget {
     @objc public static func prepareForCustomization() { shared?.prepareForCustomization() }
     @objc public static var imageForCustomization: NSImage { makeCustomizationImage() }
 
-    // Instance forms (used by newer Pock releases).
     @objc public func viewDidAppear() {}
     @objc public func viewWillDisappear() {}
     @objc public func prepareForCustomization() {}
@@ -64,7 +56,6 @@ public final class AgentTouchBarWidget: NSObject, PKWidget {
     private let client = BridgeClient()
     private var pollTimer: Timer?
     private var isPolling = false
-    private var answeredPermissionIDs: Set<String> = []
 
     override public required init() {
         statusView = StatusView(frame: NSRect(x: 0, y: 0, width: StatusView.preferredWidth, height: 30))
@@ -72,17 +63,6 @@ public final class AgentTouchBarWidget: NSObject, PKWidget {
         view = statusView
         statusView.onTap = { [weak self] in
             self?.statusView.cycleSelection()
-        }
-        statusView.onDeny = { [weak self] item in
-            self?.answer(item, decision: "deny", ruleIndex: nil)
-        }
-        statusView.onAllow = { [weak self] item in
-            self?.answer(item, decision: "allow", ruleIndex: nil)
-        }
-        statusView.onSuggestion = { [weak self] item, index in
-            // A numbered suggestion = "allow + remember" (the bridge echoes
-            // the permission-update entry back to the agent).
-            self?.answer(item, decision: "allow", ruleIndex: index)
         }
         AgentTouchBarWidget.shared = self
     }
@@ -120,21 +100,10 @@ public final class AgentTouchBarWidget: NSObject, PKWidget {
                 guard let self = self else { return }
                 self.isPolling = false
                 if let state = state {
-                    self.apply(state: state)
+                    self.statusView.apply(agents: state.agents)
                 }
             }
         }
-    }
-
-    private func apply(state: BridgeClient.BridgeState) {
-        let pending = state.pending.filter { !answeredPermissionIDs.contains($0.id) }
-        statusView.apply(agents: state.agents, pendingCount: pending.count, permission: pending.first)
-    }
-
-    private func answer(_ item: BridgeClient.PermissionItem, decision: String, ruleIndex: Int?) {
-        guard !answeredPermissionIDs.contains(item.id) else { return }
-        answeredPermissionIDs.insert(item.id)
-        client.sendDecision(id: item.id, decision: decision, ruleIndex: ruleIndex) { _ in }
     }
 }
 

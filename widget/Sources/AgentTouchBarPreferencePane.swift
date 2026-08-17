@@ -1,7 +1,7 @@
 import AppKit
 
 /// Polished Agent Status preferences: master enable, branded agent rows,
-/// visibility policy, animation and permission controls.
+/// visibility policy and animation.
 final class AgentTouchBarPreferencePane: NSViewController {
 
     private static let agents: [(id: String, name: String, subtitle: String, logo: String)] = [
@@ -14,7 +14,6 @@ final class AgentTouchBarPreferencePane: NSViewController {
     private var agentSwitches: [NSSwitch] = []
     private var visibilityControl: NSSegmentedControl!
     private var shimmerSwitch: NSSwitch!
-    private var permissionSwitch: NSSwitch!
     private var dependentControls: [NSControl] = []
 
     // MARK: PKWidgetPreference compatibility
@@ -101,21 +100,10 @@ final class AgentTouchBarPreferencePane: NSViewController {
             control: shimmerSwitch
         )
 
-        permissionSwitch = NSSwitch()
-        permissionSwitch.target = self
-        permissionSwitch.action = #selector(controlChanged)
-        dependentControls.append(permissionSwitch)
-        let permissionRow = settingRow(
-            icon: NSImage(systemSymbolName: "hand.raised", accessibilityDescription: nil),
-            title: "Permission controls",
-            subtitle: "Show Deny, numbered suggestions, and Allow actions on the Touch Bar",
-            control: permissionSwitch
-        )
-
         let resetButton = NSButton(title: "Reset to Defaults", target: self, action: #selector(resetTapped))
         resetButton.bezelStyle = .rounded
 
-        rows.append(contentsOf: [separator(), appearanceTitle, visibilityRow, shimmerRow, permissionRow, separator(), resetButton])
+        rows.append(contentsOf: [separator(), appearanceTitle, visibilityRow, shimmerRow, separator(), resetButton])
 
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
@@ -191,7 +179,6 @@ final class AgentTouchBarPreferencePane: NSViewController {
         default: visibilityControl.selectedSegment = 0
         }
         shimmerSwitch.state = AgentPrefs.shimmerEnabled ? .on : .off
-        permissionSwitch.state = AgentPrefs.permissionButtonsEnabled ? .on : .off
         updateControlAvailability()
     }
 
@@ -215,7 +202,6 @@ final class AgentTouchBarPreferencePane: NSViewController {
         let modes = ["always", "compact", "active"]
         defaults.set(modes[max(visibilityControl.selectedSegment, 0)], forKey: "visibilityMode")
         defaults.set(shimmerSwitch.state == .on, forKey: "shimmerEnabled")
-        defaults.set(permissionSwitch.state == .on, forKey: "permissionButtonsEnabled")
         defaults.synchronize()
         NotificationCenter.default.post(name: AgentPrefs.changedNotification, object: nil)
     }

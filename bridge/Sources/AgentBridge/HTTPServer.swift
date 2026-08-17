@@ -19,14 +19,12 @@ final class HTTPServer: @unchecked Sendable {
 
     private let hub: AgentHub
     private let port: UInt16
-    private let permissionTimeout: TimeInterval
     private var listenFd: Int32 = -1
     private var running = true
 
-    init(hub: AgentHub, port: UInt16, permissionTimeout: TimeInterval) {
+    init(hub: AgentHub, port: UInt16) {
         self.hub = hub
         self.port = port
-        self.permissionTimeout = permissionTimeout
     }
 
     func start() throws {
@@ -150,58 +148,9 @@ final class HTTPServer: @unchecked Sendable {
             let event = body["event"] as? String ?? ""
             let tool = body["tool"] as? String
             let detail = body["detail"] as? String
-            let options = body["options"] as? [String]
             let ts = body["ts"] as? Double
-            hub.record(event: event, agent: agent, tool: tool, detail: detail, options: options, ts: ts)
+            hub.record(event: event, agent: agent, tool: tool, detail: detail, ts: ts)
             writeResponse(fd, status: 200, json: ["ok": true])
-
-        case ("POST", "/v1/permission"):
-            guard let body = request.jsonBody() else {
-                writeResponse(fd, status: 400, json: ["error": "invalid body"])
-                return
-            }
-            let agent = AgentID(rawValue: body["agent"] as? String ?? "") ?? .claude
-            let tool = body["tool"] as? String ?? "tool"
-            let detail = body["detail"] as? String ?? ""
-            let cwd = body["cwd"] as? String ?? ""
-            var suggestions: [PermissionSuggestion] = []
-            if let raw = body["suggestions"] as? [[String: Any]] {
-                for item in raw.prefix(3) {
-                    guard let label = item["label"] as? String else { continue }
-                    let entryJSON = item["entry"] ?? [:]
-                    let entryData = (try? JSONSerialization.data(withJSONObject: entryJSON, options: [.sortedKeys])) ?? Data("{}".utf8)
-                    suggestions.append(PermissionSuggestion(label: label, entry: String(data: entryData, encoding: .utf8) ?? "{}"))
-                }
-            }
-            let outcome = hub.requestPermission(
-                agent: agent, tool: tool, detail: detail, cwd: cwd,
-                suggestions: suggestions, timeout: permissionTimeout
-            )
-            var response: [String: Any] = ["decision": outcome.decision]
-            if let ruleIndex = outcome.ruleIndex,
-               ruleIndex >= 0, ruleIndex < suggestions.count,
-               let entry = suggestions[ruleIndex].entry.data(using: .utf8),
-               let entryObject = try? JSONSerialization.jsonObject(with: entry) {
-                response["updatedPermissions"] = [entryObject]
-            }
-            if outcome.decision == "deny" {
-                response["message"] = "Denied on Touch Bar"
-            }
-            writeResponse(fd, status: 200, json: response)
-
-        case ("POST", "/v1/decision"):
-            guard let body = request.jsonBody(),
-                  let id = body["id"] as? String,
-                  let decision = body["decision"] as? String else {
-                writeResponse(fd, status: 400, json: ["error": "invalid body"])
-                return
-            }
-            let ruleIndex = body["ruleIndex"] as? Int
-            if hub.decide(id: id, decision: decision, ruleIndex: ruleIndex) {
-                writeResponse(fd, status: 200, json: ["ok": true])
-            } else {
-                writeResponse(fd, status: 404, json: ["error": "unknown or expired permission"])
-            }
 
         default:
             writeResponse(fd, status: 404, json: ["error": "not found"])
