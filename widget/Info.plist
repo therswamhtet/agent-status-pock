@@ -23,7 +23,7 @@
 	<key>NSPrincipalClass</key>
 	<string>AgentTouchBar.AgentTouchBarWidget</string>
 	<key>PKWidgetAuthor</key>
-	<string>MSIModern14</string>
+	<string>therswamhtet</string>
 	<key>PKWidgetPreferenceClass</key>
 	<string>AgentTouchBar.AgentTouchBarPreferencePane</string>
 	<key>LSMinimumSystemVersion</key>

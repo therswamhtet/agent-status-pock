@@ -121,12 +121,12 @@ def main():
                 }))
             return
 
-        # Turn permission_suggestions into Touch Bar buttons. Picking one
-        # echoes the entry back as updatedPermissions (= "don't ask again").
+        # Turn permission_suggestions into numbered Touch Bar buttons. Picking
+        # one echoes the entry back as updatedPermissions (= "don't ask again").
         suggestions = []
         raw_suggestions = data.get("permission_suggestions")
         if isinstance(raw_suggestions, list):
-            for item in raw_suggestions[:2]:
+            for item in raw_suggestions[:3]:
                 if isinstance(item, dict) and item.get("type") == "addRules":
                     rules = item.get("rules") or []
                     rule_text = ""

@@ -31,20 +31,13 @@ func stats(_ file: String) -> (full: Int, mid: Int, faint: Int) {
     return (full, mid, faint)
 }
 
-// Headless harness: AppKit only attaches subview layers during window
-// display, so splice them into the layer tree manually (test-only).
-func spliceLayers(_ view: NSView) {
-    for sub in view.subviews {
-        if sub.wantsLayer, let layer = sub.layer, layer.superlayer == nil {
-            view.layer?.addSublayer(layer)
-        }
-        spliceLayers(sub)
-    }
-}
-
+// Headless harness: cacheDisplay forces a real display pass, so both the
+// layer-backed status view and the AppKit controls in the permission panel
+// (NSButton / NSTextField) draw their final pixels into the bitmap.
 func snapshot(_ view: NSView, width: CGFloat, file: String) {
     let frame = NSRect(x: 0, y: 0, width: width, height: 30)
     view.frame = frame
+    view.needsLayout = true
     view.layoutSubtreeIfNeeded()
     view.layer?.layoutIfNeeded()
     guard let rep = NSBitmapImageRep(
@@ -57,8 +50,7 @@ func snapshot(_ view: NSView, width: CGFloat, file: String) {
     NSGraphicsContext.current = ctx
     NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.16, alpha: 1).setFill()
     NSRect(x: 0, y: 0, width: width * 2, height: 60).fill()
-    spliceLayers(view)
-    view.layer?.render(in: ctx.cgContext)
+    view.cacheDisplay(in: view.bounds, to: rep)
     NSGraphicsContext.restoreGraphicsState()
     guard let data = rep.representation(using: .png, properties: [:]) else { fatalError("no data") }
     try! data.write(to: outDir.appendingPathComponent(file))

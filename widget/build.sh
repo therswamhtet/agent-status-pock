@@ -52,21 +52,6 @@ cp Resources/*.png "$BUNDLE/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $AGENT_TOUCH_BAR_VERSION" "$BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $AGENT_TOUCH_BAR_BUILD" "$BUNDLE/Contents/Info.plist"
 
-echo "==> Building VoiceInkDictation widget"
-for arch in "${ARCHS[@]}"; do
-    swiftc -target "${arch}-apple-macos${MIN_MACOS}" -sdk "$SDKROOT" \
-        -emit-library -module-name VoiceInkDictation -O \
-        -I "$DIST" \
-        -Xlinker -undefined -Xlinker dynamic_lookup \
-        VoiceInkDictation/Sources/*.swift \
-        -o "$DIST/archs/VoiceInkDictation-${arch}"
-done
-
-VOICEINK_BUNDLE="$DIST/VoiceInkDictation.pock"
-mkdir -p "$VOICEINK_BUNDLE/Contents/MacOS"
-lipo -create "$DIST"/archs/VoiceInkDictation-* -output "$VOICEINK_BUNDLE/Contents/MacOS/VoiceInkDictation"
-cp VoiceInkDictation/Info.plist "$VOICEINK_BUNDLE/Contents/Info.plist"
-
 echo "==> Bundle: $BUNDLE"
 otool -L "$BUNDLE/Contents/MacOS/AgentTouchBar" | head -6
 echo "==> Agent Status version: $AGENT_TOUCH_BAR_VERSION ($AGENT_TOUCH_BAR_BUILD)"
@@ -81,8 +66,6 @@ echo "==> Agent Status version: $AGENT_TOUCH_BAR_VERSION ($AGENT_TOUCH_BAR_BUILD
 )
 echo "==> Archive: $DIST/AgentTouchBar.pkarchive"
 echo "==> Archive: $DIST/AgentTouchBar-$AGENT_TOUCH_BAR_VERSION.pkarchive"
-echo "==> Bundle: $VOICEINK_BUNDLE"
-otool -L "$VOICEINK_BUNDLE/Contents/MacOS/VoiceInkDictation" | head -6
 
 if [[ "${1:-}" == "--install" ]]; then
     WIDGETS_DIR="$HOME/Library/Application Support/Pock/Widgets"
@@ -90,8 +73,5 @@ if [[ "${1:-}" == "--install" ]]; then
     rm -rf "$WIDGETS_DIR/AgentTouchBar.pock"
     cp -R "$BUNDLE" "$WIDGETS_DIR/AgentTouchBar.pock"
     echo "==> Installed to $WIDGETS_DIR/AgentTouchBar.pock"
-    rm -rf "$WIDGETS_DIR/VoiceInkDictation.pock"
-    cp -R "$VOICEINK_BUNDLE" "$WIDGETS_DIR/VoiceInkDictation.pock"
-    echo "==> Installed to $WIDGETS_DIR/VoiceInkDictation.pock"
     echo "==> Restart Pock (menu bar icon → Relaunch) to load the widget."
 fi

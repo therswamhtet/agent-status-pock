@@ -31,11 +31,11 @@ final class StatusView: NSView {
 
     // MARK: Subviews (permission mode)
 
-    private let panelStack = NSStackView(frame: .zero)
+    private let panelContainer = NSView(frame: .zero)
     private let denyButton = NSButton(title: "Deny", target: nil, action: nil)
     private let panelIcon = NSImageView(frame: .zero)
     private let panelTitle = NSTextField(labelWithString: "")
-    private let allowButton = NSButton(title: "Once", target: nil, action: nil)
+    private let allowButton = NSButton(title: "Allow", target: nil, action: nil)
     private var suggestionButtons: [NSButton] = []
 
     // MARK: State
@@ -74,29 +74,19 @@ final class StatusView: NSView {
         tap.allowedTouchTypes = .direct
         addGestureRecognizer(tap)
 
-        // Permission mode
-        panelStack.isHidden = true
-        panelStack.orientation = .horizontal
-        panelStack.alignment = .centerY
-        panelStack.spacing = 7
-        panelStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(panelStack)
-        NSLayoutConstraint.activate([
-            panelStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            panelStack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 10),
-            panelStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
-            panelStack.topAnchor.constraint(equalTo: topAnchor),
-            panelStack.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        // Permission mode. Laid out manually in layout() so the panel always
+        // fits the available width, like the status mode.
+        panelContainer.isHidden = true
+        addSubview(panelContainer)
+        panelContainer.addSubview(denyButton)
+        panelContainer.addSubview(panelIcon)
+        panelContainer.addSubview(panelTitle)
+        panelContainer.addSubview(allowButton)
 
         style(denyButton, color: .systemRed, font: NSFont.systemFont(ofSize: 13, weight: .bold))
-        denyButton.widthAnchor.constraint(equalToConstant: 50).isActive = true
-        denyButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
         denyButton.addGestureRecognizer(clickGesture(#selector(denyTapped)))
 
         panelIcon.imageScaling = .scaleProportionallyDown
-        panelIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        panelIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
 
         panelTitle.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         panelTitle.textColor = .white
@@ -105,14 +95,7 @@ final class StatusView: NSView {
         panelTitle.cell?.truncatesLastVisibleLine = true
 
         style(allowButton, color: .systemGreen, font: NSFont.systemFont(ofSize: 13, weight: .bold))
-        allowButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
-        allowButton.heightAnchor.constraint(equalToConstant: 22).isActive = true
         allowButton.addGestureRecognizer(clickGesture(#selector(allowTapped)))
-
-        panelStack.addArrangedSubview(denyButton)
-        panelStack.addArrangedSubview(panelIcon)
-        panelStack.addArrangedSubview(panelTitle)
-        panelStack.addArrangedSubview(allowButton)
     }
 
     override var intrinsicContentSize: NSSize {
@@ -121,7 +104,11 @@ final class StatusView: NSView {
 
     override func layout() {
         super.layout()
-        guard panelStack.isHidden else { return }
+        panelContainer.frame = bounds
+        guard panelContainer.isHidden else {
+            layoutPermissionPanel()
+            return
+        }
         if presentationWidth <= 1 {
             iconView.isHidden = true
             label.isHidden = true
@@ -151,6 +138,40 @@ final class StatusView: NSView {
         label.frame = NSRect(x: groupX + 24, y: 0, width: textWidth, height: bounds.height)
     }
 
+    /// Manual permission-panel layout: fixed edges (Deny / Allow) with the
+    /// numbered suggestion buttons and a flexible, truncating title between
+    /// them. Guarantees the panel fits the bar without Auto Layout.
+    private func layoutPermissionPanel() {
+        let gap: CGFloat = 6
+        let denyW: CGFloat = 52
+        let iconW: CGFloat = 16
+        let allowW: CGFloat = 56
+        let midY = (bounds.height - 22) / 2
+
+        let suggestionWidths = suggestionButtons.map { button -> CGFloat in
+            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10, weight: .semibold)]
+            let textWidth = (button.title as NSString).size(withAttributes: attrs).width
+            return min(max(textWidth + 12, 26), 58)
+        }
+        let suggestionTotal = suggestionWidths.reduce(0, +)
+        let itemCount = CGFloat(3 + suggestionButtons.count)
+        let fixed = denyW + iconW + allowW + suggestionTotal + gap * itemCount
+        let titleWidth = max(min(bounds.width - fixed - 40, 220), 36)
+
+        var x = max((bounds.width - fixed - titleWidth) / 2, 6)
+        denyButton.frame = NSRect(x: x, y: midY, width: denyW, height: 22)
+        x += denyW + gap
+        panelIcon.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: iconW, height: 16)
+        x += iconW + gap
+        panelTitle.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: titleWidth, height: 16)
+        x += titleWidth + gap
+        for (button, width) in zip(suggestionButtons, suggestionWidths) {
+            button.frame = NSRect(x: x, y: midY, width: width, height: 22)
+            x += width + gap
+        }
+        allowButton.frame = NSRect(x: x, y: midY, width: allowW, height: 22)
+    }
+
     private func style(_ button: NSButton, color: NSColor, font: NSFont) {
         button.bezelStyle = .rounded
         button.bezelColor = color
@@ -172,7 +193,7 @@ final class StatusView: NSView {
     // MARK: Tap
 
     @objc private func handleTap() {
-        guard panelStack.isHidden else { return }
+        guard panelContainer.isHidden else { return }
         onTap?()
     }
 
@@ -205,11 +226,11 @@ final class StatusView: NSView {
         if let permission = permission {
             updateIdlePresentation(forceVisible: true)
             if !samePermission { showPermissionPanel(permission) }
-            panelStack.isHidden = false
+            panelContainer.isHidden = false
             label.isHidden = true
             iconView.isHidden = true
         } else {
-            panelStack.isHidden = true
+            panelContainer.isHidden = true
             clearSuggestionButtons()
             updateIdlePresentation(forceVisible: false)
         }
@@ -261,7 +282,7 @@ final class StatusView: NSView {
     }
 
     private func refresh() {
-        guard panelStack.isHidden else { return }
+        guard panelContainer.isHidden else { return }
         guard !activeAgents.isEmpty else {
             iconView.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
             iconView.contentTintColor = NSColor(calibratedWhite: 0.45, alpha: 1)
@@ -330,34 +351,45 @@ final class StatusView: NSView {
 
     private func showPermissionPanel(_ item: BridgeClient.PermissionItem) {
         clearSuggestionButtons()
-        panelTitle.stringValue = "\(item.agent.capitalized) · \(item.tool)"
+
+        let badge = pendingCount > 1 ? "  +\(pendingCount - 1)" : ""
+        panelTitle.stringValue = "\(item.agent.capitalized) · \(item.tool)\(badge)"
         let brand = NSColor(hex: item.agent == "claude" ? "D97757" : (item.agent == "codex" ? "10A37F" : "8B5CF6")) ?? .white
         panelIcon.contentTintColor = brand
         panelIcon.image = logo(for: item.agent)
             ?? NSImage(systemSymbolName: "hand.raised.fill", accessibilityDescription: nil)
 
-        // Persistent permission suggestion. Keep only one semantic button
-        // so the compact Touch Bar panel stays obvious and uncluttered.
-        let suggestions = Array(item.suggestions.prefix(1))
+        // Numbered suggestion buttons (1/2/3), as on the agent's own prompt.
+        // Picking one echoes the "add rule" entry back to the agent so it
+        // stops asking for that operation.
+        let suggestions = Array(item.suggestions.prefix(3))
+        let maxLabel = suggestions.count >= 3 ? 9 : (suggestions.count == 2 ? 12 : 18)
         for (index, suggestion) in suggestions.enumerated() {
-            let button = NSButton(title: "Always", target: nil, action: nil)
-            style(button, color: NSColor(calibratedRed: 0.22, green: 0.42, blue: 0.72, alpha: 1),
-                  font: NSFont.systemFont(ofSize: 10, weight: .semibold))
-            button.toolTip = suggestion.label
-            button.tag = index
-            button.heightAnchor.constraint(equalToConstant: 22).isActive = true
-            button.widthAnchor.constraint(equalToConstant: 58).isActive = true
-            button.addGestureRecognizer(clickGesture(#selector(suggestionTapped)))
-            suggestionButtons.append(button)
-            let allowIndex = panelStack.arrangedSubviews.firstIndex(of: allowButton) ?? panelStack.arrangedSubviews.count
-            panelStack.insertArrangedSubview(button, at: allowIndex + index)
+            let title = "\(index + 1) \(Self.truncate(suggestion.label, to: maxLabel))"
+            suggestionButtons.append(makeSuggestionButton(title: title, tooltip: suggestion.label, tag: index, color: brand))
         }
-        allowButton.title = "Once"
+        for button in suggestionButtons {
+            panelContainer.addSubview(button)
+        }
+    }
+
+    private func makeSuggestionButton(title: String, tooltip: String, tag: Int, color: NSColor) -> NSButton {
+        let button = NSButton(title: title, target: nil, action: nil)
+        style(button, color: color, font: NSFont.systemFont(ofSize: 10, weight: .semibold))
+        button.toolTip = tooltip
+        button.tag = tag
+        button.addGestureRecognizer(clickGesture(#selector(suggestionTapped)))
+        return button
+    }
+
+    private static func truncate(_ string: String, to maxChars: Int) -> String {
+        guard string.count > maxChars else { return string }
+        let end = string.index(string.startIndex, offsetBy: maxChars - 1)
+        return String(string[..<end]) + "…"
     }
 
     private func clearSuggestionButtons() {
         for button in suggestionButtons {
-            panelStack.removeArrangedSubview(button)
             button.removeFromSuperview()
         }
         suggestionButtons.removeAll()

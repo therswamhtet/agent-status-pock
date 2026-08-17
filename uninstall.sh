@@ -13,7 +13,6 @@ rm -rf "$HOME/.agentbridge"
 
 echo "==> Removing Pock widget"
 rm -rf "$HOME/Library/Application Support/Pock/Widgets/AgentTouchBar.pock"
-rm -rf "$HOME/Library/Application Support/Pock/Widgets/VoiceInkDictation.pock"
 
 echo "==> Removing opencode plugin"
 rm -f "$HOME/.config/opencode/plugins/agentbridge.js"

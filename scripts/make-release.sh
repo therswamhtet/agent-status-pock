@@ -32,7 +32,6 @@ cp "$ROOT/hooks/codex/hooks.json.template" "$STAGE/hooks/codex/"
 cp "$ROOT/plugin-opencode/agentbridge.js" "$STAGE/plugin-opencode/"
 
 cp -R "$ROOT/widget/dist/AgentTouchBar.pock" "$STAGE/"
-cp -R "$ROOT/widget/dist/VoiceInkDictation.pock" "$STAGE/"
 
 cp "$ROOT/scripts/install-release.sh" "$STAGE/install.sh"
 cp "$ROOT/uninstall.sh" "$STAGE/uninstall.sh"

@@ -13,16 +13,16 @@ right on the MacBook Touch Bar. Works with **Claude Code**, **Codex CLI** and
   with a shimmer sweep. Idle agents pulse gently. Finished answers flash
   "Response ready".
 - **Tap to approve.** When an agent asks for permission, the widget becomes a
-  Deny/Allow prompt, or numbered buttons for the agent's suggested answers.
-  If you do not answer within 60 seconds, the agent falls back to its own
-  prompt.
+  red **Deny** / green **Allow** prompt, plus numbered buttons (1/2/3) for
+  the answers the agent itself suggests. Picking a suggestion echoes an
+  "always allow" rule back to the agent, so it stops asking for that
+  operation. If you do not answer within 60 seconds, the agent falls back to
+  its own prompt.
 - **Multi-agent.** Each agent has its own brand color (Claude clay, Codex
   teal, opencode violet). The bar follows the most recently active agent, and
   you can tap it to cycle between them.
 - **No PockKit dependency.** The widget resolves its symbols at load time, so
   it runs on any Pock version.
-- **VoiceInk dictation key.** A second widget adds a microphone button that
-  emits virtual F19, a key that does not exist on Touch Bar keyboards.
 - **Universal build.** arm64 and x86_64, macOS 15 and up.
 
 ## Requirements
@@ -36,12 +36,12 @@ right on the MacBook Touch Bar. Works with **Claude Code**, **Codex CLI** and
 
 Grab the latest **ready-to-use** bundle from the
 [Releases page](https://github.com/therswamhtet/agent-status-pock/releases)
-(`agent-status-pock-<version>-ready.zip`). It contains prebuilt `.pock`
-widgets, the AgentBridge daemon, agent hooks and an installer:
+(`agent-status-pock-<version>-ready.zip`). It contains the prebuilt `.pock`
+widget, the AgentBridge daemon, agent hooks and an installer:
 
 ```bash
-unzip agent-status-pock-2.2.0-ready.zip
-cd agent-status-pock-2.2.0
+unzip agent-status-pock-2.3.0-ready.zip
+cd agent-status-pock-2.3.0
 chmod +x install.sh uninstall.sh
 ./install.sh
 ```
@@ -67,8 +67,8 @@ cd agent-status-pock
 ./install.sh
 ```
 
-The source installer builds the bridge and widgets locally, then follows the
-same steps. See Development below.
+The source installer builds the bridge and the widget locally, then follows
+the same steps. See Development below.
 
 ## How it works
 
@@ -108,14 +108,11 @@ same steps. See Development below.
 
 - **Watch the bar.** Shimmering text means the agent is working. A breathing
   icon means it is idle and waiting for you.
-- **Approve permissions.** When the bar becomes a full-width Deny/Allow
-  prompt, tap Allow or Deny. Pending requests are served one after another.
+- **Approve permissions.** When the bar becomes a full-width panel, tap
+  **Allow** or **Deny**, or tap a numbered suggestion button to allow and
+  remember that operation. Pending requests are served one after another.
 - **Cycle agents.** Tap the status area to cycle through recently active
   agents. Works in cursor mode too.
-- **Dictate with VoiceInk.** Tap the microphone button to start VoiceInk, tap
-  again to stop and transcribe. The button always emits its dedicated virtual
-  F19 and does not mirror any shortcut. If macOS blocks synthetic keys, allow
-  Pock under System Settings, Privacy and Security, Accessibility.
 
 ### Configuration
 

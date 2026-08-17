@@ -1,8 +1,7 @@
 # Agent Status, ready-to-use bundle
 
-Everything is prebuilt. No compiler needed. This zip contains the Pock
-widgets, the AgentBridge daemon (universal arm64 + x86_64) and the agent
-hooks.
+Everything is prebuilt. No compiler needed. This zip contains the Pock widget,
+the AgentBridge daemon (universal arm64 + x86_64) and the agent hooks.
 
 ## Requirements
 
@@ -42,5 +41,10 @@ polling it as soon as you add it to the Touch Bar.
   Re-run `./install.sh` and add the widget again.
 - **Codex hooks do not run.** Run `/hooks` inside Codex and trust them once.
 
-The **VoiceInkDictation.pock** widget is optional. It adds a dedicated
-microphone key that emits virtual F19 for the VoiceInk dictation app.
+## Permission controls
+
+When an agent asks for permission, the widget turns into a panel with a red
+**Deny** button, numbered suggestion buttons (1/2/3) for the answers the
+agent itself suggests, and a green **Allow** button. Picking a suggestion
+echoes an "always allow" rule back to the agent, so it stops asking for that
+operation.

@@ -108,7 +108,7 @@ final class AgentTouchBarPreferencePane: NSViewController {
         let permissionRow = settingRow(
             icon: NSImage(systemSymbolName: "hand.raised", accessibilityDescription: nil),
             title: "Permission controls",
-            subtitle: "Show Deny, Once, and Always actions on the Touch Bar",
+            subtitle: "Show Deny, numbered suggestions, and Allow actions on the Touch Bar",
             control: permissionSwitch
         )
 
