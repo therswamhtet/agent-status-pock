@@ -320,6 +320,18 @@ final class AgentHub: @unchecked Sendable {
                         break
                     }
                 }
+                // Inactivity timeout: if the agent is stuck in an active
+                // state (thinking/answering/working) with no events for 45s,
+                // it probably finished without sending Stop. Fall back to
+                // ready so the bar doesn't freeze on "Thinking".
+                if s.status == .thinking || s.status == .answering || s.status == .working,
+                   now - s.lastActive > 45 {
+                    s.status = .ready
+                    s.label = "\(s.name) is ready"
+                    s.tool = nil
+                    s.detail = nil
+                    s.transientUntil = nil
+                }
                 return s
             }
             .sorted { $0.lastActive > $1.lastActive }
