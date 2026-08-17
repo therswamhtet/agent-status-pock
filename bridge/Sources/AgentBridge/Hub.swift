@@ -258,6 +258,18 @@ final class AgentHub: @unchecked Sendable {
         )
         let now = Date().timeIntervalSince1970
         status.lastActive = now
+
+        // Keep needsInput sticky: while a question is on the Touch Bar,
+        // thinking/notification/permission_pending events from the agent
+        // must not overwrite it. Only a real state change (tool_start,
+        // answering, stop, ready, session_start, or a new needs_input)
+        // clears the question panel.
+        if status.status == .needsInput,
+           ["thinking", "notification", "permission_pending", "connected"].contains(event) {
+            statuses[agent] = status
+            return
+        }
+
         status.options = nil
 
         switch event {

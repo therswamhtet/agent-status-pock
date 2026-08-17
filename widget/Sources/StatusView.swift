@@ -184,26 +184,22 @@ final class StatusView: NSView {
     private func layoutQuestionPanel() {
         let gap: CGFloat = 6
         let iconW: CGFloat = 16
+        let buttonW: CGFloat = 26
         let midY = (bounds.height - 22) / 2
 
-        let buttonWidths = questionButtons.map { button -> CGFloat in
-            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10, weight: .semibold)]
-            let textWidth = (button.title as NSString).size(withAttributes: attrs).width
-            return min(max(textWidth + 12, 26), 72)
-        }
-        let buttonTotal = buttonWidths.reduce(0, +)
+        let buttonTotal = CGFloat(questionButtons.count) * buttonW
         let itemCount = CGFloat(2 + questionButtons.count)
         let fixed = iconW + buttonTotal + gap * itemCount
-        let titleWidth = max(min(bounds.width - fixed - 40, 200), 40)
+        let titleWidth = max(bounds.width - fixed - 40, 60)
 
         var x = max((bounds.width - fixed - titleWidth) / 2, 6)
         panelIcon.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: iconW, height: 16)
         x += iconW + gap
         panelTitle.frame = NSRect(x: x, y: (bounds.height - 16) / 2, width: titleWidth, height: 16)
         x += titleWidth + gap
-        for (button, width) in zip(questionButtons, buttonWidths) {
-            button.frame = NSRect(x: x, y: midY, width: width, height: 22)
-            x += width + gap
+        for button in questionButtons {
+            button.frame = NSRect(x: x, y: midY, width: buttonW, height: 22)
+            x += buttonW + gap
         }
     }
 
@@ -466,11 +462,9 @@ final class StatusView: NSView {
             ?? NSImage(systemSymbolName: agent.symbol, accessibilityDescription: nil)
         panelTitle.stringValue = agent.label
 
-        let maxLabel = options.count >= 3 ? 12 : (options.count == 2 ? 16 : 22)
         for (index, option) in options.enumerated() {
-            let title = "\(index + 1) \(Self.truncate(option, to: maxLabel))"
-            let button = NSButton(title: title, target: nil, action: nil)
-            style(button, color: brand, font: NSFont.systemFont(ofSize: 10, weight: .semibold))
+            let button = NSButton(title: "\(index + 1)", target: nil, action: nil)
+            style(button, color: brand, font: NSFont.systemFont(ofSize: 13, weight: .bold))
             button.toolTip = option
             button.tag = index
             questionButtons.append(button)
