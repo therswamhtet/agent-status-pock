@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible problem with Agent Status
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, usernames, and private paths from logs before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Agent Status version
+      placeholder: 2.4.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: macOS 15.6, Apple Silicon, Pock 0.9.0-22, Claude Code
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include expected behavior and exact reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste sanitized output from ~/.agentbridge/logs/stderr.log.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed sensitive information from this report.
+          required: true

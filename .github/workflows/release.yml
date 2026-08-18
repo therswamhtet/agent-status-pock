@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag matches project version
+        run: |
+          source widget/version.env
+          test "${GITHUB_REF_NAME}" = "v${AGENT_TOUCH_BAR_VERSION}"
+      - name: Test
+        run: make test
+      - name: Build ready-to-use release
+        run: ./scripts/make-release.sh
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" .release/agent-status-pock-*-ready.zip --generate-notes --title "Agent Status ${GITHUB_REF_NAME#v}"

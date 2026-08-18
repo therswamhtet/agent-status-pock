@@ -1,18 +1,35 @@
 #!/bin/bash
 # Installs the ready-to-use Agent Status bundle: bridge daemon + LaunchAgent +
-# Pock widgets + agent hooks (Claude Code, Codex, opencode).
+# Pock widgets + agent hooks (Claude Code, Codex CLI, OpenCode).
 # No compiler required, everything is prebuilt.
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+if [[ ! -d "$ROOT/AgentTouchBar.pock" && -d "$ROOT/../AgentTouchBar.pock" ]]; then
+    ROOT="$(cd "$ROOT/.." && pwd)"
+fi
 INSTALL_DIR="$HOME/.agentbridge"
 HOOK_PATH="$INSTALL_DIR/hooks/agentbridge-hook.py"
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+command -v sw_vers >/dev/null 2>&1 || die "Agent Status requires macOS."
+MACOS_MAJOR="$(sw_vers -productVersion | cut -d. -f1)"
+[[ "$MACOS_MAJOR" -ge 15 ]] || die "macOS 15 or newer is required."
+command -v python3 >/dev/null 2>&1 || die "Python 3 is required."
+command -v curl >/dev/null 2>&1 || die "curl is required to verify AgentBridge."
+[[ -x "$ROOT/bin/agentbridge" ]] || die "The release is missing bin/agentbridge."
+[[ -d "$ROOT/AgentTouchBar.pock" ]] || die "The release is missing AgentTouchBar.pock."
 
 echo "==> Installing bridge to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR/bin" "$INSTALL_DIR/hooks" "$INSTALL_DIR/logs"
 cp "$ROOT/bin/agentbridge" "$INSTALL_DIR/bin/agentbridge"
 cp "$ROOT/hooks/agentbridge-hook.py" "$HOOK_PATH"
-chmod +x "$HOOK_PATH" "$INSTALL_DIR/bin/agentbridge"
+cp "$ROOT/uninstall.sh" "$INSTALL_DIR/uninstall.sh"
+chmod +x "$HOOK_PATH" "$INSTALL_DIR/bin/agentbridge" "$INSTALL_DIR/uninstall.sh"
 
 echo "==> Installing LaunchAgent"
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -45,6 +62,7 @@ echo "    AgentBridge daemon started on http://127.0.0.1:3939"
 
 echo "==> Installing Pock widget"
 mkdir -p "$HOME/Library/Application Support/Pock/Widgets"
+rm -rf "$HOME/Library/Application Support/Pock/Widgets/AgentTouchBar.pock"
 cp -R "$ROOT/AgentTouchBar.pock" "$HOME/Library/Application Support/Pock/Widgets/"
 echo "    AgentTouchBar.pock copied"
 
@@ -59,16 +77,22 @@ settings = {}
 if os.path.exists(settings_path):
     with open(settings_path) as f:
         settings = json.load(f)
-shutil.copy2(settings_path, settings_path + ".bak-agentbridge")
+    backup = settings_path + ".bak-agentbridge"
+    if not os.path.exists(backup):
+        shutil.copy2(settings_path, backup)
 hooks = settings.setdefault("hooks", {})
 for event, entries in snippet["hooks"].items():
     hooks.setdefault(event, [])
     for entry in entries:
         if entry not in hooks[event]:
             hooks[event].append(entry)
-with open(settings_path, "w") as f:
+os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+temp_path = settings_path + ".tmp-agentbridge"
+with open(temp_path, "w") as f:
     json.dump(settings, f, indent=2)
-print("    merged into ~/.claude/settings.json (backup: settings.json.bak-agentbridge)")
+    f.write("\n")
+os.replace(temp_path, settings_path)
+print("    merged into ~/.claude/settings.json")
 PYEOF
 
 echo "==> Installing Codex hooks"
@@ -91,20 +115,38 @@ for event, entries in template["hooks"].items():
         if entry not in events[event]:
             events[event].append(entry)
 os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, "w") as f:
+temp_path = path + ".tmp-agentbridge"
+with open(temp_path, "w") as f:
     json.dump(hooks, f, indent=2)
+    f.write("\n")
+os.replace(temp_path, path)
 print("    wrote ~/.codex/hooks.json (run /hooks in Codex to trust the new hooks)")
 PYEOF
 
 echo "==> Installing opencode plugin"
 mkdir -p "$HOME/.config/opencode/plugins"
-cp "$ROOT/plugin-opencode/agentbridge.js" "$HOME/.config/opencode/plugins/agentbridge.js"
+OPENCODE_PLUGIN="$HOME/.config/opencode/plugins/agentbridge.js"
+if [[ -f "$OPENCODE_PLUGIN" && ! -f "$OPENCODE_PLUGIN.bak-agentbridge" ]]; then
+    cp "$OPENCODE_PLUGIN" "$OPENCODE_PLUGIN.bak-agentbridge"
+fi
+cp "$ROOT/plugin-opencode/agentbridge.js" "$OPENCODE_PLUGIN"
 echo "    copied to ~/.config/opencode/plugins/agentbridge.js"
+
+echo "==> Verifying AgentBridge"
+HEALTHY=false
+for _ in {1..20}; do
+    if curl --fail --silent "http://127.0.0.1:3939/v1/health" >/dev/null; then
+        HEALTHY=true
+        break
+    fi
+    sleep 0.25
+done
+[[ "$HEALTHY" == true ]] || die "AgentBridge did not start. See $INSTALL_DIR/logs/stderr.log."
 
 echo
 echo "Done. Next steps:"
 echo "  1. Relaunch Pock, then drag 'Agent Status' into your Touch Bar via"
 echo "     Customize Pock…"
 echo "  2. In Codex, run /hooks and trust the AgentBridge hooks."
-echo "  3. Restart Claude Code / Codex / opencode sessions."
-echo "  4. Uninstall: ./uninstall.sh"
+echo "  3. Restart Claude Code / Codex CLI / OpenCode sessions."
+echo "  4. Uninstall at any time with: $INSTALL_DIR/uninstall.sh"

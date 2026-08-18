@@ -34,12 +34,16 @@ cp "$ROOT/plugin-opencode/agentbridge.js" "$STAGE/plugin-opencode/"
 cp -R "$ROOT/widget/dist/AgentTouchBar.pock" "$STAGE/"
 
 cp "$ROOT/scripts/install-release.sh" "$STAGE/install.sh"
+mkdir -p "$STAGE/scripts"
+cp "$ROOT/scripts/install-release.sh" "$STAGE/scripts/install-release.sh"
 cp "$ROOT/uninstall.sh" "$STAGE/uninstall.sh"
 cp "$ROOT/scripts/RELEASE-README.md" "$STAGE/README.md"
+cp "$ROOT/LICENSE" "$STAGE/LICENSE"
 chmod +x "$STAGE/install.sh" "$STAGE/uninstall.sh"
 
 echo "==> Packaging $ZIP"
 (cd "$STAGE/.." && rm -f "$ZIP" && zip -r -q "$ZIP" "agent-status-pock-$VERSION")
+cp "$ZIP" "$ROOT/.release/agent-status-pock-ready.zip"
 
 echo "==> Done"
 echo "    Version : $VERSION (build $BUILD)"

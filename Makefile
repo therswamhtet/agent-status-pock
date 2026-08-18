@@ -11,12 +11,12 @@ package: widget
 	@echo "Archives are built by widget/build.sh; see widget/dist/."
 
 test: bridge widget
-	cd bridge && (./.build/release/AgentBridge > /tmp/ab-test.log 2>&1 & echo $$! > /tmp/ab-test.pid)
-	sleep 0.5
-	@curl -sf localhost:3939/v1/health > /dev/null && echo "bridge health: OK" || echo "bridge health: FAIL"
-	@curl -sf -X POST localhost:3939/v1/event -d '{"agent":"claude","event":"tool_start","tool":"Edit","detail":"x"}' > /dev/null && echo "event: OK" || echo "event: FAIL"
-	@curl -sf localhost:3939/v1/state | grep -q "working" && echo "state: OK" || echo "state: FAIL"
-	@kill $$(cat /tmp/ab-test.pid) 2>/dev/null || true
+	@set -e; (cd bridge && AGENTBRIDGE_PORT=39390 exec ./.build/release/AgentBridge > /tmp/ab-test.log 2>&1) & \
+	pid=$$!; trap 'kill $$pid 2>/dev/null || true' EXIT; set -e; \
+	for attempt in $$(seq 1 20); do curl -fsS localhost:39390/v1/health > /dev/null && break; test $$attempt -lt 20 || { cat /tmp/ab-test.log >&2; exit 1; }; sleep 0.25; done; \
+	echo "bridge health: OK"; \
+	curl -fsS -X POST localhost:39390/v1/event -d '{"agent":"claude","event":"tool_start","tool":"Edit","detail":"x"}' > /dev/null; echo "event: OK"; \
+	curl -fsS localhost:39390/v1/state | grep -q "working"; echo "state: OK"
 	@cd widget && swiftc -o dist/smoke-test tests/smoke.swift && ./dist/smoke-test
 	@cd widget && swiftc -parse-as-library -o dist/render-test tests/render.swift Sources/*.swift -I dist -L dist/lib -lPockKit -Xlinker -rpath -Xlinker "$$PWD/dist/lib" && ./dist/render-test | grep -v "^{\"ok"
 

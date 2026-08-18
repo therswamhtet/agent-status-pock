@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a focused improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this change solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired behavior and alternatives considered.
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Affected integration
+      options:
+        - All or core widget
+        - Claude Code
+        - Codex CLI
+        - opencode
+*** Add File: .github/pull_request_template.md
+## Summary
+
+Describe the user-visible change and why it is needed.
+
+## Verification
+
+- [ ] `make test`
+- [ ] Shell scripts pass `bash -n`
+- [ ] UI changes include updated screenshots
+- [ ] Existing agent configuration is preserved
+
+## Notes
+
+List compatibility concerns, follow-up work, or `None`.

@@ -1,58 +1,71 @@
-# Agent Status
+# Agent Status for Pock
 
-A [Pock](https://pock.app) widget that shows what your coding agent is doing
-right on the MacBook Touch Bar. Works with **Claude Code**, **Codex CLI** and
-**opencode**.
+<p align="center">
+  <img src="docs/hero.jpg" alt="Agent Status running on a MacBook Pro Touch Bar" width="100%">
+</p>
 
-![Agent Status screenshots](docs/screenshots/hero.png)
+<p align="center">
+  <strong>ONE TOUCH BAR. THREE AI CODING AGENTS.</strong>
+</p>
 
-## Features
+<h2 align="center">Works with Claude Code, Codex CLI, and OpenCode</h2>
 
-- **Live status.** While an agent works, the bar shows its current activity
-  (Thinking, Answering, Editing code, Reading, Searching, Executing shell)
-  with a shimmer sweep. Idle agents pulse gently. Finished answers flash
-  "Response ready".
-- **Asking a question.** When an agent asks you a question, the bar shows
-  "Agent is asking a question" in amber so you know to check the terminal.
-- **Multi-agent.** Each agent has its own brand color (Claude clay, Codex
-  teal, opencode violet). The bar follows the most recently active agent, and
-  you can tap it to cycle between them.
-- **No PockKit dependency.** The widget resolves its symbols at load time, so
-  it runs on any Pock version.
-- **Universal build.** arm64 and x86_64, macOS 15 and up.
+<p align="center">
+  See what your AI agent is doing without switching windows.<br>
+  Thinking, editing, running commands, asking questions, and ready states appear live on your Touch Bar.
+</p>
 
-## Requirements
+<p align="center">
+  <a href="https://github.com/therswamhtet/agent-status-pock/actions/workflows/ci.yml"><img src="https://github.com/therswamhtet/agent-status-pock/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/therswamhtet/agent-status-pock/releases/latest"><img src="https://img.shields.io/github/v/release/therswamhtet/agent-status-pock" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/therswamhtet/agent-status-pock" alt="MIT license"></a>
+</p>
 
-- macOS 15 or newer on a MacBook Pro with a Touch Bar
-- [Pock](https://pock.app) 0.9.0-22 or later
-- At least one of: Claude Code, Codex CLI, opencode
-- For a source install: Xcode Command Line Tools and Python 3
+## Install
 
-## Install (recommended, no compiler needed)
+Requirements: macOS 15 or newer, a MacBook Pro with a Touch Bar,
+[Pock](https://pock.app) 0.9.0-22 or later, and Python 3. Python is used only to
+merge agent hook settings; it is available with Xcode Command Line Tools or
+from [python.org](https://www.python.org/downloads/macos/).
 
-Grab the latest **ready-to-use** bundle from the
-[Releases page](https://github.com/therswamhtet/agent-status-pock/releases)
-(`agent-status-pock-<version>-ready.zip`). It contains the prebuilt `.pock`
-widget, the AgentBridge daemon, agent hooks and an installer:
+Run one command in Terminal. It downloads the latest prebuilt universal release,
+installs the widget and local bridge, configures **Claude Code, Codex CLI, and
+OpenCode**, and verifies that the bridge started:
 
 ```bash
-unzip agent-status-pock-2.3.0-ready.zip
-cd agent-status-pock-2.3.0
-chmod +x install.sh uninstall.sh
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/therswamhtet/agent-status-pock/main/install.sh | bash
 ```
 
-Then:
+The prebuilt release does not compile project code or require `sudo`. The
+installer only writes to your home directory and preserves existing agent
+configuration.
 
-1. Relaunch Pock (menu bar icon, Relaunch), open Customize Pock and drag
-   **Agent Status** into your Touch Bar.
-2. Restart your agent sessions.
+After installation:
 
-Why not just the `.pock` file? The widget has no direct connection to your
-agents. It polls a small local daemon called **AgentBridge**
-(`localhost:3939`) that gathers status. The bundle installs all of it at once.
+1. Relaunch Pock from its menu bar icon.
+2. Open **Customize Pock** and drag **Agent Status** into the Touch Bar.
+3. Restart active Claude Code, Codex CLI, or OpenCode sessions. Codex may ask you to trust the hooks once through `/hooks`.
 
-## Install from source
+### Install with an AI agent
+
+Give Claude Code, Codex CLI, OpenCode, or another installation agent this
+repository URL:
+
+```text
+https://github.com/therswamhtet/agent-status-pock
+```
+
+Use this instruction:
+
+```text
+Install Agent Status from this repository using its documented one-command installer. Do not modify the repository. Verify http://127.0.0.1:3939/v1/health after installation and report the remaining Pock setup step.
+```
+
+### Other install methods
+
+Download `agent-status-pock-<version>-ready.zip` from the
+[latest release](https://github.com/therswamhtet/agent-status-pock/releases/latest),
+extract it, and run `./install.sh`. To build locally instead:
 
 ```bash
 git clone https://github.com/therswamhtet/agent-status-pock.git
@@ -60,107 +73,99 @@ cd agent-status-pock
 ./install.sh
 ```
 
-The source installer builds the bridge and the widget locally, then follows
-the same steps. See Development below.
+A source build requires Xcode Command Line Tools and Python 3.
 
-## How it works
+## Features
 
-```
-┌──────────────┐   hooks (JSON stdin/stdout)   ┌───────────────┐
-│ Claude Code  │ ────────────────────────────► │               │
-│ Codex        │ ────────────────────────────► │  AgentBridge  │
-│ opencode     │ ── plugin (HTTP POST) ──────► │  localhost    │
-└──────────────┘                               │  :3939        │
-                                               └──────────────┘
-                                                       │ HTTP polling (300 ms)
-                                               ┌───────▼───────┐
-                                               │  Pock widget  │
-                                               │ AgentTouchBar │
-                                               └───────────────┘
-```
+- **Live activity:** shows thinking, answering, editing, reading, searching, and shell execution with a subtle shimmer.
+- **Question alerts:** turns amber when an agent needs input so you know to return to the terminal.
+- **Multi-agent status:** follows the most recently active agent; tap the widget to cycle through active agents.
+- **Native and local:** the bridge listens only on `127.0.0.1`; no account, cloud service, or telemetry.
+- **Universal release:** includes arm64 and x86_64 binaries with no compiler required.
+- **Broad Pock compatibility:** resolves PockKit symbols at load time instead of binding to a specific Pock build.
 
-1. **AgentBridge** is a tiny local daemon (`~/.agentbridge/bin/agentbridge`)
-   run by a LaunchAgent. It aggregates per-agent status.
-2. **Agent hooks and plugins** push activity events. Claude Code and Codex use
-   a shared Python hook. opencode uses a JavaScript plugin.
-3. **The Pock widget** (`AgentTouchBar.pock`) polls the bridge every 300 ms
-   and renders the status view.
+## How It Works
 
-### What each agent reports
-
-| Event | Claude Code | Codex | opencode |
-|---|---|---|---|
-| Tool activity (Editing, Executing...) | `PreToolUse` | `PreToolUse` | `tool.execute.before` |
-| Thinking | `UserPromptSubmit` / `PostToolUse` | same | `message.part.updated` |
-| Asking a question | `PreToolUse` (AskUserQuestion) | same | not supported yet |
-| Idle | `Stop` / `SessionEnd` | same | `session.idle` |
-
-## Usage
-
-- **Watch the bar.** Shimmering text means the agent is working. A breathing
-  icon means it is idle and waiting for you.
-- **Asking a question.** When the bar turns amber and shows "Agent is asking
-  a question", check the terminal and answer there.
-- **Cycle agents.** Tap the status area to cycle through recently active
-  agents. Works in cursor mode too.
-
-### Configuration
-
-The bridge reads this environment variable from the LaunchAgent plist:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `AGENTBRIDGE_PORT` | `3939` | Bridge listen port |
-
-Widget preferences live in Pock, Manage Widgets, Agent Status. You can toggle
-which agents appear and the shimmer animation.
-
-## Development
-
-```bash
-make bridge    # build AgentBridge (bridge/.build/release/AgentBridge)
-make widget    # build dist/AgentTouchBar.pock
-make test      # bridge curl tests + widget smoke test + render test
-make install   # install everything
+```text
+Claude Code ── hooks ──┐
+Codex CLI  ─── hooks ──┼──> AgentBridge (127.0.0.1:3939) <── Pock widget
+opencode   ─── plugin ─┘              local HTTP polling
 ```
 
-The widget lives in `widget/Sources/` as plain Swift with a `swiftc` build.
-There is no Xcode project. PockKit is vendored under `widget/Vendor/PockKit/`
-(MIT, from [github.com/pock/pockkit](https://github.com/pock/pockkit)) and is
-used at compile time only. The bundle is linked with
-`-undefined dynamic_lookup`, so it has zero PockKit symbol dependencies and
-loads in any Pock version.
+Agent hooks send small activity events to AgentBridge. The Pock widget polls
+the local bridge every 300 ms and renders the latest agent state. AgentBridge
+runs as a per-user macOS LaunchAgent from `~/.agentbridge`.
 
-The render test (`widget/tests/render.swift`) draws every UI state into
-`widget/dist/render-*.png` (mirrored in `docs/screenshots/`) so you can check
-the visuals without a Touch Bar.
+| Activity | Claude Code | Codex CLI | OpenCode |
+|---|---:|---:|---:|
+| Tool activity | Yes | Yes | Yes |
+| Thinking and answering | Yes | Yes | Yes |
+| Question alert | Yes | Yes | Not yet |
+| Idle and ready | Yes | Yes | Yes |
 
-### Releasing
+## Configuration
 
-```bash
-./scripts/make-release.sh
-```
+Widget preferences are available in **Pock > Manage Widgets > Agent Status**.
+You can choose which agents appear and toggle the shimmer animation.
 
-This builds a universal bridge and widget, then packages
-`.release/agent-status-pock-<version>-ready.zip`, the ready-to-use bundle.
+| Environment variable | Default | Purpose |
+|---|---:|---|
+| `AGENTBRIDGE_PORT` | `3939` | Local bridge port |
+
+If you change the port in the LaunchAgent plist, the widget and hooks must use
+the same port.
 
 ## Troubleshooting
 
-- **Widget missing from Customize Pock.** Make sure `AgentTouchBar.pock` is in
-  `~/Library/Application Support/Pock/Widgets/` and relaunch Pock.
-- **No status updates.** Check the bridge:
-  `curl -s localhost:3939/v1/health` should return `{"ok":true}`. Logs are in
-  `~/.agentbridge/logs/stderr.log`.
-- **Codex hooks do not run.** Run `/hooks` inside Codex and trust them once.
-- **Pock quirks on modern macOS.** After sleep or lock, the default bar may
-  reappear. Relaunch Pock. See pock/pock issues.
+Check bridge health:
+
+```bash
+curl -fsS http://127.0.0.1:3939/v1/health
+```
+
+Expected response: `{"ok":true}`.
+
+- **Widget is missing:** confirm `AgentTouchBar.pock` exists in `~/Library/Application Support/Pock/Widgets/`, then relaunch Pock.
+- **Status does not update:** inspect `~/.agentbridge/logs/stderr.log`, then rerun the installer.
+- **Codex hooks do not run:** enter `/hooks` in Codex and trust the AgentBridge hooks.
+- **The default Touch Bar returns after sleep:** relaunch Pock. This is a known Pock behavior on newer macOS releases.
+
+When reporting a problem, include your macOS version, Mac architecture, Pock
+version, agent name, and bridge log output with sensitive paths removed.
 
 ## Uninstall
 
 ```bash
-./uninstall.sh
+~/.agentbridge/uninstall.sh
 ```
+
+The uninstaller removes Agent Status files and only the hook entries installed
+by this project. It preserves unrelated Claude Code, Codex CLI, and OpenCode setup.
+
+## Development
+
+```bash
+make bridge
+make widget
+make test
+make install
+```
+
+The widget is plain Swift in `widget/Sources/` and builds with `swiftc`; there
+is no Xcode project. PockKit is vendored from
+[pock/pockkit](https://github.com/pock/pockkit) for compile-time use under its
+MIT license. Render tests write each UI state to `widget/dist/` for inspection
+without a Touch Bar.
+
+Create a ready-to-use release locally with `./scripts/make-release.sh`.
+Version tags matching `v*` are built and published by GitHub Actions.
+
+## Contributing
+
+Bug reports and focused pull requests are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before submitting a change. For security
+issues, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
 ## License
 
-[MIT](LICENSE)
+Agent Status is open source under the [MIT License](LICENSE).

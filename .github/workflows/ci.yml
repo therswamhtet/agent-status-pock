@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: bash -n install.sh uninstall.sh scripts/*.sh widget/build.sh
+      - name: Run test suite
+        run: make test
+      - name: Build release bundle
+        run: ./scripts/make-release.sh
+      - name: Inspect release bundle
+        run: |
+          source widget/version.env
+          archive=".release/agent-status-pock-${AGENT_TOUCH_BAR_VERSION}-ready.zip"
+          bundle=".release/agent-status-pock-${AGENT_TOUCH_BAR_VERSION}"
+          unzip -t "$archive"
+          test -x "$bundle/install.sh"
+          test -x "$bundle/uninstall.sh"
+          test -x "$bundle/bin/agentbridge"
+          test -d "$bundle/AgentTouchBar.pock"
+          bash -n "$bundle/install.sh" "$bundle/uninstall.sh" "$bundle/scripts/install-release.sh"

@@ -1,5 +1,7 @@
 # Agent Status, ready-to-use bundle
 
+**One Touch Bar. Three AI coding agents: Claude Code, Codex CLI, and OpenCode.**
+
 Everything is prebuilt. No compiler needed. This zip contains the Pock widget,
 the AgentBridge daemon (universal arm64 + x86_64) and the agent hooks.
 
@@ -7,8 +9,8 @@ the AgentBridge daemon (universal arm64 + x86_64) and the agent hooks.
 
 - macOS 15 or newer on a MacBook Pro with a Touch Bar
 - Pock 0.9.0-22 or later
-- Python 3 (ships with macOS)
-- At least one of: Claude Code, Codex CLI, opencode
+- Python 3 (from Xcode Command Line Tools or python.org)
+- At least one of: Claude Code, Codex CLI, OpenCode
 
 ## Install
 
@@ -21,7 +23,7 @@ Then:
 
 1. Relaunch Pock (menu bar icon, Relaunch), open Customize Pock and drag
    **Agent Status** into your Touch Bar.
-2. Restart your agent sessions.
+2. Restart your Claude Code, Codex CLI, or OpenCode sessions.
 
 That is it. The bridge starts automatically at login, and the widget starts
 polling it as soon as you add it to the Touch Bar.
